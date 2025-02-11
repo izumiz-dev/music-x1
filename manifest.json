@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Music X1",
+  "version": "1.0.0",
+  "description": "A Chrome extension using Preact and TypeScript",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://youtube.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
