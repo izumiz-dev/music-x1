@@ -2,10 +2,13 @@ import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
 import "./popup.css";
 
+
 const Popup = () => {
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1.5);
   const [hasApiKey, setHasApiKey] = useState(true);
+  const [isMusicVideo, setIsMusicVideo] = useState(false);
+  const [isYouTube, setIsYouTube] = useState(false);
 
   useEffect(() => {
     // Check if API key is set
@@ -13,9 +16,41 @@ const Popup = () => {
       setHasApiKey(!!result.geminiApiKey);
     });
 
+    const checkIfMusicVideo = async () => {
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        const currentTab = tabs[0];
+        console.log('Current URL:', currentTab?.url);
+        
+        if (currentTab?.url?.includes('youtube.com/watch')) {
+          const videoId = new URL(currentTab.url).searchParams.get('v');
+          console.log('Video ID:', videoId);
+          
+          if (videoId) {
+            const video = await chrome.storage.local.get(videoId);
+            const videoData = video[videoId];
+            console.log('Video data:', videoData);
+            console.log('Is music video:', videoData?.isMusic);
+            setIsMusicVideo(videoData?.isMusic ?? false);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking music video:', error);
+      }
+    };
+
+    const checkIsYouTube = async () => {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const currentTab = tabs[0];
+      setIsYouTube(currentTab?.url?.includes('youtube.com') || false);
+    }
+
+    checkIfMusicVideo();
+    checkIsYouTube();
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (chrome.runtime.lastError) {
-        console.error('tabs.query error:', chrome.runtime.lastError, chrome.runtime.lastError);
+        console.error('tabs.query error:', chrome.runtime.lastError);
       }
       if (tabs[0]) {
         setCurrentTab(tabs[0]);
@@ -76,27 +111,36 @@ const Popup = () => {
           <button onClick={openOptions}>Open Settings</button>
         </div>
       )}
-      
-      <div class="playback-settings">
-        <div class="speed-display">
-          <span class="speed-value">{playbackRate}x</span>
-          <span class="speed-label">Default Playback Speed</span>
-        </div>
 
-        <div class="slider-container">
-          <input
-            type="range"
-            min="1"
-            max="2.5"
-            step="0.25"
-            value={playbackRate}
-            onChange={handlePlaybackRateChange}
-            onInput={handleSliderInput}
-            class="speed-slider"
-          />
-          
+      {!isYouTube ? (
+        <div class="disabled-message">
+          <p>Available only on YouTube.</p>
+          <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" class="youtube-link">
+            Go to YouTube
+          </a>
         </div>
-      </div>
+      ) : (
+        <div class={`playback-settings ${isMusicVideo ? 'music-mode' : ''}`}>
+          <div class="speed-display">
+            <span class="speed-value">{isMusicVideo ? 'x1' : `x${playbackRate.toFixed(2)}`}</span>
+            <span class="speed-label">{isMusicVideo ? "Enjoy the Music!" : "Set Default Playback Speed"}</span>
+          </div>
+          {!isMusicVideo && (
+            <div class="slider-container">
+              <input
+                type="range"
+                min="1"
+                max="2.5"
+                step="0.25"
+                value={playbackRate}
+                onChange={handlePlaybackRateChange}
+                onInput={handleSliderInput}
+                class="speed-slider"
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

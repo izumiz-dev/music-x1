@@ -85,7 +85,11 @@ async function handleYouTubePage(tabId: number, videoId: string) {
       return;
     }
 
-    const rate = await getVideoRate(videoId, response.title);
+    const pureTitle = response.title
+      .replace(/^\([0-9]+\)\s*/, '')
+      .replace(/\s*-\s*YouTube$/, '');
+
+    const rate = await getVideoRate(videoId, pureTitle);
 
     console.log('[background] Sending playback rate setting message:', rate);
     await trySendMessage(tabId, { 
