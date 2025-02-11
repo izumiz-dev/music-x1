@@ -7,12 +7,41 @@ interface CacheData {
 
 const CACHE_EXPIRY = 28 * 24 * 60 * 60 * 1000; 
 
-const updateBadge = (isMusic: boolean) => {
-  chrome.action.setBadgeText({ text: isMusic ? '♪' : '🎞️' });
+const updateBadge = (isMusic: boolean, visible: boolean = true) => {
+  chrome.action.setBadgeText({ 
+    text: visible ? (isMusic ? '♪' : '🎞️') : ''
+  });
   chrome.action.setBadgeBackgroundColor({
     color: isMusic ? '#4CAF50' : '#808080'
   });
 };
+
+// YouTubeのタブかどうかを判定する
+const isYouTubeTab = (url: string | undefined): boolean => {
+  return url?.includes('youtube.com/watch') ?? false;
+};
+
+// タブがアクティブになったときの処理
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  const tab = await chrome.tabs.get(activeInfo.tabId);
+  const isYouTube = isYouTubeTab(tab.url);
+  
+  if (isYouTube && tab.url) {
+    try {
+      const url = new URL(tab.url);
+      const videoId = url.searchParams.get('v');
+      if (videoId) {
+        handleYouTubePage(tab.id!, videoId);
+        return;
+      }
+    } catch (error) {
+      console.error('Error processing YouTube URL:', error);
+    }
+  }
+  
+  // YouTubeタブでない場合やURLの解析に失敗した場合は、バッジを非表示にする
+  updateBadge(false, false);
+});
 
 async function getVideoRate(videoId: string, title: string): Promise<number> {
   try {
@@ -37,7 +66,9 @@ async function getVideoRate(videoId: string, title: string): Promise<number> {
       });
     }
 
-    updateBadge(isMusic);
+    // バッジの状態を保存
+    await chrome.storage.local.set({ lastBadgeState: { isMusic } });
+    updateBadge(isMusic, true);
 
     const { defaultPlaybackRate = 2.0 } = await chrome.storage.local.get(['defaultPlaybackRate']);
     const rate = isMusic ? 1.0 : defaultPlaybackRate;
