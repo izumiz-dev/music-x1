@@ -30,15 +30,19 @@ const buildOptions = {
   outdir: 'dist',
   target: ['chrome58'],
   define: {
-    'process.env.NODE_ENV': '"production"',
-    'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY)
-  }
+    'process.env.NODE_ENV': '"production"'
+  },
 };
 
 // Copy static files
 function copyStaticFiles() {
   try {
-    fs.copyFileSync(path.join('src', 'index.html'), path.join('dist', 'index.html'));
+    // Copy HTML files
+    const htmlFiles = glob.sync('src/**/*.html');
+    htmlFiles.forEach(file => {
+      const relativePath = path.relative('src', file);
+      fs.copyFileSync(file, path.join('dist', relativePath));
+    });
     fs.copyFileSync('manifest.json', path.join('dist', 'manifest.json'));
 
     // Copy CSS files

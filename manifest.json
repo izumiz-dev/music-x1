@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Music X1",
   "version": "1.0.0",
-  "description": "A Chrome extension using Preact and TypeScript",
+  "description": "",
   "action": {
     "default_popup": "index.html"
   },
@@ -26,5 +26,6 @@
       ],
       "js": ["content.js"]
     }
-  ]
+  ],
+  "options_page": "options.html"
 }

@@ -1,11 +1,13 @@
 const API_END_POINT: string =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite-preview-02-05:generateContent';
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-if (!geminiApiKey) {
-  throw new Error('GEMINI_API_KEY is not set in .env file');
-}
+const getGeminiApiKey = async (): Promise<string> => {
+  const result = await chrome.storage.sync.get(['geminiApiKey']);
+  if (!result.geminiApiKey) {
+    throw new Error('Gemini API key is not set. Please configure it in the extension settings.');
+  }
+  return result.geminiApiKey;
+};
 
 interface GeminiResponse {
   candidates: Array<{
@@ -21,8 +23,9 @@ export const askGemini = async (prompt: string): Promise<GeminiResponse | null> 
   console.log('🎯 Calling Gemini API with prompt:', prompt);
 
   try {
+    const apiKey = await getGeminiApiKey();
     const response = await fetch(
-      `${API_END_POINT}?key=${geminiApiKey}`,
+      `${API_END_POINT}?key=${apiKey}`,
       {
         method: 'POST',
         headers: {

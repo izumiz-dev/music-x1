@@ -5,8 +5,14 @@ import "./popup.css";
 const Popup = () => {
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
   const [playbackRate, setPlaybackRate] = useState(1.5);
+  const [hasApiKey, setHasApiKey] = useState(true);
 
   useEffect(() => {
+    // Check if API key is set
+    chrome.storage.sync.get(['geminiApiKey'], (result) => {
+      setHasApiKey(!!result.geminiApiKey);
+    });
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (chrome.runtime.lastError) {
         console.error('tabs.query error:', chrome.runtime.lastError, chrome.runtime.lastError);
@@ -56,9 +62,20 @@ const Popup = () => {
     updatePlaybackRate(newRate, true);
   };
 
+  const openOptions = () => {
+    chrome.runtime.openOptionsPage();
+  };
+
   return (
     <div class="popup-container">
       <h2>Music x1</h2>
+      
+      {!hasApiKey && (
+        <div class="api-key-warning">
+          <p>Gemini API key is not set.</p>
+          <button onClick={openOptions}>Open Settings</button>
+        </div>
+      )}
       
       <div class="playback-settings">
         <div class="speed-display">
