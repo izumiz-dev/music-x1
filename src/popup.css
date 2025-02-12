@@ -338,21 +338,32 @@ h2 {
   font-size: clamp(13px, 3vw, 14px);
 }
 
-.youtube-link {
+.button {
   display: inline-block;
-  margin-top: max(12px, 2vh);
   padding: max(8px, 1.5vw) max(16px, 3vw);
   border-radius: max(6px, 1vw);
-  background: linear-gradient(135deg, #ff0000, #e62117);
+  border: none;
   color: white;
   font-weight: 500;
   text-decoration: none;
+  cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.youtube-link:hover {
+.button:hover {
   filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.youtube-link {
+  margin-top: max(12px, 2vh);
 }
 
 .api-key-warning {
@@ -371,29 +382,6 @@ h2 {
   font-weight: 500;
 }
 
-.api-key-warning button {
-  padding: max(8px, 1.5vw) max(16px, 3vw);
-  border-radius: max(6px, 1vw);
-  border: none;
-  background: linear-gradient(120deg, #1a73e8, #0d47a1);
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.api-key-warning button:hover {
-  filter: brightness(1.1);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-}
-
-.api-key-warning button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
 @media (prefers-color-scheme: dark) {
   .api-key-warning {
     background: rgba(255, 64, 129, 0.2);
@@ -403,26 +391,20 @@ h2 {
     color: #ff4081;
   }
 
+  .button {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  .button:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6);
+  }
+
+  .youtube-link {
+    background: linear-gradient(120deg, #ff4081, #7c4dff);
+  }
+
   .api-key-warning button {
     background: linear-gradient(120deg, #ff4081, #7c4dff);
-  }
-
-  .api-key-warning button:hover {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-  }
-}
-
-@media (prefers-color-scheme: light) {
-  .youtube-link {
-    background: linear-gradient(120deg, #1a73e8, #0d47a1);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  .youtube-link {
-    background: linear-gradient(120deg, #ff4081, #7c4dff);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
 
   .disabled-message {

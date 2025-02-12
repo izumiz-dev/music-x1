@@ -108,14 +108,14 @@ const Popup = () => {
       {!hasApiKey && (
         <div class="api-key-warning">
           <p>Gemini API key is not set.</p>
-          <button onClick={openOptions}>Open Settings</button>
+          <button onClick={openOptions} class="button">Open Settings</button>
         </div>
       )}
 
       {!isYouTube ? (
         <div class="disabled-message">
           <p>Available only on YouTube.</p>
-          <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" class="youtube-link">
+          <a href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" class="youtube-link button">
             Go to YouTube
           </a>
         </div>
