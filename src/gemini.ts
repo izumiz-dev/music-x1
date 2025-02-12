@@ -36,7 +36,19 @@ export const askGemini = async (prompt: string): Promise<GeminiResponse | null> 
             parts: [{
               text: prompt
             }]
-          }]
+          }],
+          generationConfig: {
+            response_mime_type: 'application/json',
+            response_schema: {
+              type: 'OBJECT',
+              properties: {
+                music: {
+                  type: 'BOOLEAN'
+                }
+              },
+              required: ['music']
+            }
+          }
         })
       });
 
@@ -92,13 +104,13 @@ Title: ${title}
         if (!response?.candidates?.[0]?.content?.parts?.[0]?.text) {
           throw new Error('Invalid response format from Gemini');
         }
-        
-        const responseText = response.candidates[0].content.parts[0].text.toLowerCase().trim();
-        if (responseText === 'true' || responseText === 'false') {
-          console.log('📊 Music detection result:', responseText);
-          return responseText === 'true';
+        const resObject = JSON.parse(response.candidates[0].content.parts[0].text);
+        if (resObject.music) {
+          console.log('📊 Music detection result: true');
+          return true;
         } else {
-          throw new Error('Invalid response: ' + responseText);
+          console.log('📊 Music detection result: false');
+          return false;
         }
       } catch (error) {
         lastError = error;
