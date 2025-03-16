@@ -5,6 +5,10 @@ on:
     tags:
       - 'v*'
 
+# GitHub Releaseを作成するための権限を追加
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -50,36 +54,21 @@ jobs:
 
       - name: Create Release
         id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          files: |
+            music-x1-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
-
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./music-x1-${{ github.ref_name }}.zip
-          asset_name: music-x1-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
 
       - name: Create source code zip
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
           git archive -o music-x1-source-${VERSION}.zip HEAD
 
-      - name: Upload source code zip
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload source code to release
+        uses: softprops/action-gh-release@v1
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./music-x1-source-${{ github.ref_name }}.zip
-          asset_name: music-x1-source-${{ github.ref_name }}.zip
-          asset_content_type: application/zip
+          files: music-x1-source-${{ github.ref_name }}.zip
+          append_body: true
