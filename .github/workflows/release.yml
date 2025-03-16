@@ -61,14 +61,3 @@ jobs:
             music-x1-${{ github.ref_name }}.zip
           draft: false
           prerelease: false
-
-      - name: Create source code zip
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          git archive -o music-x1-source-${VERSION}.zip HEAD
-
-      - name: Upload source code to release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: music-x1-source-${{ github.ref_name }}.zip
-          append_body: true
