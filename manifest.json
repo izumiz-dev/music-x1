@@ -12,7 +12,8 @@
   ],
   "host_permissions": [
     "https://www.youtube.com/*",
-    "https://youtube.com/*"
+    "https://youtube.com/*",
+    "https://www.googleapis.com/youtube/v3/*"
   ],
   "background": {
     "service_worker": "background.js",
