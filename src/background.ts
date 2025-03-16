@@ -125,28 +125,58 @@ async function getVideoRate(videoId: string, title: string): Promise<number> {
   }
 }
 
-// Function to retry message sending
-async function trySendMessage(tabId: number, message: any, maxRetries = 5, initialDelay = 2000): Promise<any> {
-  let delay = initialDelay;
+// Function to wait for content script initialization
+async function waitForContentScript(tabId: number, maxAttempts = 20): Promise<boolean> {
+  console.log('[background] Waiting for content script initialization');
   
+  for (let i = 0; i < maxAttempts; i++) {
+    try {
+      console.log(`[background] Initialization check attempt ${i + 1}/${maxAttempts}`);
+      const ready = await chrome.tabs.sendMessage(tabId, { type: 'CHECK_READY' })
+        .catch(() => false);
+      
+      if (ready) {
+        console.log('[background] Content script is ready');
+        return true;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.log(`[background] Check attempt ${i + 1} failed:`, error);
+    }
+  }
+  
+  console.log('[background] Content script initialization timeout');
+  return false;
+}
+
+// Function to retry message sending
+async function trySendMessage(tabId: number, message: any, maxRetries = 3): Promise<any> {
+  console.log('[background] Attempting to send message');
+  
+  // 最初にコンテンツスクリプトの初期化を待つ
+  const isReady = await waitForContentScript(tabId);
+  if (!isReady) {
+    throw new Error('Content script failed to initialize');
+  }
+
+  // メッセージ送信の再試行
   for (let i = 0; i < maxRetries; i++) {
     try {
-      console.log(`[background] Message send attempt ${i + 1}/${maxRetries} (delay: ${delay}ms)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      
+      console.log(`[background] Message send attempt ${i + 1}/${maxRetries}`);
       const response = await chrome.tabs.sendMessage(tabId, message);
       console.log('[background] Message send successful:', response);
       return response;
     } catch (error) {
-      console.log(`[background] Attempt ${i + 1} failed:`, error);
-      if (i < maxRetries - 1) {
-        // Increase delay time (up to 5 seconds)
-        delay = Math.min(delay * 1.5, 5000);
-      } else {
+      console.log(`[background] Send attempt ${i + 1} failed:`, error);
+      if (i === maxRetries - 1) {
         throw error;
       }
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
   }
+
+  throw new Error('Failed to send message after all retries');
 }
 
 // Function to handle YouTube page processing

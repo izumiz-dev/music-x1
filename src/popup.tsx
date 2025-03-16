@@ -71,17 +71,40 @@ const Popup = () => {
       await chrome.storage.local.set({ defaultPlaybackRate: newRate });
       // Send message to current tab to update playback rate
       if (currentTab?.id) {
-        try {
-          const response = await chrome.tabs.sendMessage(currentTab.id, {
-            type: 'SET_PLAYBACK_RATE',
-            rate: newRate
-          });
-          
-          if (!response?.success) {
-            console.warn('Failed to set playback rate:', response?.error || 'Unknown error');
+        const delays = [1000, 2000, 3000]; // 段階的な遅延時間
+        
+        for (let i = 0; i < delays.length; i++) {
+          try {
+            console.log(`[popup] Playback rate update attempt ${i + 1}/${delays.length}`);
+            await new Promise(resolve => setTimeout(resolve, delays[i]));
+
+            // 初期化状態の確認
+            const ready = await chrome.tabs.sendMessage(currentTab.id, { 
+              type: 'CHECK_READY' 
+            }).catch(() => false);
+            
+            if (!ready) {
+              console.log('[popup] Content script not ready, retrying...');
+              continue;
+            }
+
+            const response = await chrome.tabs.sendMessage(currentTab.id, {
+              type: 'SET_PLAYBACK_RATE',
+              rate: newRate
+            });
+            
+            if (response?.success) {
+              console.log('[popup] Playback rate updated successfully');
+              return;
+            }
+            
+            console.warn('[popup] Failed to set playback rate:', response?.error || 'Unknown error');
+          } catch (error) {
+            console.error(`[popup] Update attempt ${i + 1} failed:`, error);
+            if (i === delays.length - 1) {
+              console.error('[popup] All update attempts failed');
+            }
           }
-        } catch (error) {
-          console.error('Error occurred while updating playback rate:', error);
         }
       }
     }
@@ -130,8 +153,8 @@ const Popup = () => {
               <input
                 type="range"
                 min="1"
-                max="2.5"
-                step="0.25"
+                max="3"
+                step="0.1"
                 value={playbackRate}
                 onChange={handlePlaybackRateChange}
                 onInput={handleSliderInput}

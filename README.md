@@ -44,7 +44,7 @@ flowchart TD
     Cache2 --> SetSpeed
     
     SetSpeed -->|Music| Speed1[Speed: 1x]
-    SetSpeed -->|Non-Music| Speed2[Speed: 1x-2.5x]
+    SetSpeed -->|Non-Music| Speed2[Speed: 1x-3x]
 ```
 
 ### Content Detection Details
