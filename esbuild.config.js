@@ -52,6 +52,9 @@ function copyStaticFiles() {
       fs.copyFileSync(file, path.join('dist', relativePath));
     });
 
+    // Generate PNG icons from SVG
+    require('./scripts/generate-icons');
+
     logWithDateTime('Static files copied successfully');
   } catch (error) {
     logWithDateTime(`Failed to copy static files: ${error}`);
