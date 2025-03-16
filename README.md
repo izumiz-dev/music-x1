@@ -1,119 +1,92 @@
-# Music x1 Chrome Extension
+<div align="center">
+  <img src="src/icons/icon.svg" alt="Music x1 Logo" width="128" height="128" />
+  
+  # Music x1 Chrome Extension
+
+  [![Release](https://img.shields.io/github/v/release/izumiz-dev/music-x1?style=flat-square)](https://github.com/izumiz-dev/music-x1/releases)
+  [![License](https://img.shields.io/github/license/izumiz-dev/music-x1?style=flat-square)](LICENSE)
+
+  [English](README.md) | [日本語](README_JA.md)
+
+  Smart YouTube playback speed controller powered by AI
+</div>
+
+---
 
 > [!CAUTION]
 > This is an experimental Chrome extension. Use at your own risk. Features and functionality may change without notice.
 
-A Chrome extension that automatically detects music content on YouTube using YouTube Data API and Google Gemini AI, then sets playback speed based on content type:
-- For music content: Automatically sets to 1x speed for optimal listening
-- For non-music content: Automatically adjusts speed between 1x and 2.5x in 0.25x increments
+A Chrome extension that leverages YouTube Data API and Google Gemini AI to detect music content on YouTube automatically and adjusts playback speed accordingly:
+- For music content: Automatically sets to 1x speed for optimal listening experience
+- For non-music content: Allows speed adjustment between 1x and 2.5x with 0.1x increments
 
-## How It Works
+For detailed information about the detection system and internal workings, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
-The extension uses a sophisticated detection system combining YouTube's category data and AI-based content analysis.
-
-### Detection Flow Overview
-
-```mermaid
-flowchart TD
-    Start[New YouTube Video] --> Cache{Check Cache}
-    Cache -->|Hit| UseCached[Use Cached Result]
-    Cache -->|Miss| Category[Get Video Category & Title]
-    
-    UseCached -->|Music| Speed1[Speed: 1x]
-    UseCached -->|Non-Music| Speed2[Speed: Default]
-    
-    Category --> Check{Is Music<br>Category?}
-    
-    Check -->|Yes| Music[Set as Music]
-    Check -->|No| Gemini[Use Gemini AI]
-    
-    Gemini --> Analysis{AI Analysis}
-    Analysis -->|Music| Music
-    Analysis -->|Non-Music| NonMusic[Set as Non-Music]
-    
-    Music --> Cache1[Update Cache]
-    NonMusic --> Cache2[Update Cache]
-    
-    Cache1 --> Speed1
-    Cache2 --> Speed2
-```
-
-### Content Detection Details
-
-1. **Cache-First Approach**:
-   - Every video check starts with a cache lookup
-   - If valid cache exists (less than 28 days old):
-     - Uses cached result directly
-     - Skips all API calls (both YouTube and Gemini)
-     - Immediately sets playback speed based on cached result
-   - Cache includes:
-     - Music/Non-music determination
-     - Detection method used (youtube/gemini)
-     - Timestamp for expiry checking
-
-2. **Fresh Detection Flow** (only when cache misses):
-   - First tries YouTube Data API to get video category
-   - If category is "Music" (ID: 10):
-     - Instantly marked as music
-     - No Gemini API call needed
-   - For non-music categories:
-     - Uses Gemini AI to analyze video title
-     - Makes final determination based on AI analysis
-
-3. **Performance Benefits**:
-   - Zero external API calls when cache hit
-   - Maximum one YouTube API call per cache miss
-   - Gemini API only called when needed (non-music category)
-   - Significant reduction in API usage and latency
-
-### API Keys
-
-- **YouTube Data API Key** (Required):
-  - Provides accurate video detail retrieval via YouTube Data API
-  - Essential for extension functionality
-
-- **Google Gemini API Key** (Required):
-  - Used for AI-based content analysis
-  - Required for core functionality
-  - Used as fallback for YouTube category detection
+*Read this in other languages: [日本語](README_JA.md)*
 
 ## Installation
 
-1. Clone this repository
+### Quick Installation (Recommended)
+
+1. Download the Latest Release
+- Visit the [Releases page](https://github.com/izumiz-dev/music-x1/releases)
+- Download the latest `music-x1-vX.X.X.zip` file (where X.X.X is the version number)
+
+2. Install in Chrome
+- Open Chrome
+- Navigate to `chrome://extensions/`
+- Enable "Developer mode" in the top right corner
+- Click "Load unpacked" in the top left
+- Select the directory extracted from the zip file
+
+### From Source (Development)
+
+If you need to build from source:
+
+1. Clone and Setup
 ```bash
 git clone https://github.com/izumiz-dev/music-x1.git
-```
-
-2. Install dependencies
-```bash
+cd music-x1
 pnpm install
-```
-
-3. Build the extension
-```bash
 pnpm build
 ```
 
-4. Load the extension in Chrome
-- Open Chrome
-- Go to `chrome://extensions/`
-- Enable "Developer mode"
-- Click "Load unpacked"
-- Select the extension's build directory
+2. Load the extension as described in the Quick Installation section, but select the `dist` directory
 
-5. Configure Google Gemini API Key
-- Get your API key from Google AI Studio
+### Configuration
+
+Both API keys are required and can be obtained from Google Cloud Console:
+
+1. Set up Google Cloud Project
+- Visit [Google Cloud Console](https://console.cloud.google.com/)
+- Create a new project or select an existing one
+- Enable billing for your project (required for API access)
+
+2. Enable APIs
+- Go to "APIs & Services" > "Library"
+- Search for and enable "YouTube Data API v3"
+- Search for and enable "Gemini API"
+
+3. Create API Keys
+- Go to "APIs & Services" > "Credentials"
+- Click "Create Credentials" > "API key"
+- Create two keys: one for YouTube Data API and one for Gemini API
+- (Optional) Restrict the API keys by service for better security
+
+4. Configure the Extension
 - Click the extension icon in Chrome
 - Open extension settings
-- Enter your Gemini API key in the settings page
+- Enter both API keys in their respective fields
 - Save the settings
 
 ## Development
 
+### Available Commands
+
 - `pnpm dev` - Start development mode with hot reload
 - `pnpm build` - Build for production
 
-## Tech Stack
+### Tech Stack
 
 - TypeScript
 - Google Gemini AI
