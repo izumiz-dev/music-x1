@@ -5,9 +5,6 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -15,40 +12,74 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js and pnpm
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          pnpm-version: 9
-          cache: 'pnpm'
+          node-version: '18.x'
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.x
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Build
-        run: |
-          pnpm run build
-          if [ ! -d "dist" ]; then
-            echo "dist directory was not created"
-            exit 1
-          fi
+        run: pnpm run build
 
-      - name: Create ZIP files
+      - name: Zip build artifacts
         run: |
-          # Create extension zip
-          cd dist
-          zip -r ../music-x1-${{ github.ref_name }}.zip .
-          cd ..
-          
-          # Create source code zip
-          git archive -o music-x1-source-${{ github.ref_name }}.zip HEAD
+          VERSION=${GITHUB_REF#refs/tags/}
+          zip -r music-x1-${VERSION}.zip ./dist
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: |
-            music-x1-${{ github.ref_name }}.zip
-            music-x1-source-${{ github.ref_name }}.zip
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-          generate_release_notes: true
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./music-x1-${{ github.ref_name }}.zip
+          asset_name: music-x1-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
+
+      - name: Create source code zip
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          git archive -o music-x1-source-${VERSION}.zip HEAD
+
+      - name: Upload source code zip
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./music-x1-source-${{ github.ref_name }}.zip
+          asset_name: music-x1-source-${{ github.ref_name }}.zip
+          asset_content_type: application/zip
