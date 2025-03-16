@@ -8,6 +8,7 @@ interface YouTubeApiError {
 interface YouTubeVideoResponse {
   items: Array<{
     snippet: {
+      title: string;
       categoryId: string;
     };
   }>;
@@ -85,4 +86,57 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
 export const isMusicCategory = (categoryId: number): boolean => {
   // YouTube category ID 10 is "Music"
   return categoryId === 10;
+};
+
+export const getVideoDetails = async (videoId: string): Promise<{ title: string; categoryId: number } | YouTubeApiError> => {
+  try {
+    const apiKey = await getYouTubeApiKey();
+    if (!apiKey) {
+      return {
+        type: 'YOUTUBE_API_ERROR',
+        code: 401,
+        message: 'YouTube API key not configured',
+        retryable: false
+      };
+    }
+    const response = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`
+    );
+    if (response.status === 403) {
+      return {
+        type: 'YOUTUBE_API_ERROR',
+        code: 403,
+        message: 'YouTube API quota exceeded',
+        retryable: true
+      };
+    }
+    if (!response.ok) {
+      return {
+        type: 'YOUTUBE_API_ERROR',
+        code: response.status,
+        message: 'YouTube API request failed',
+        retryable: true
+      };
+    }
+    const data: YouTubeVideoResponse = await response.json();
+    if (!data.items?.[0]?.snippet?.title || !data.items?.[0]?.snippet?.categoryId) {
+      return {
+        type: 'YOUTUBE_API_ERROR',
+        code: 404,
+        message: 'Video details not found',
+        retryable: false
+      };
+    }
+    return {
+      title: data.items[0].snippet.title,
+      categoryId: parseInt(data.items[0].snippet.categoryId, 10)
+    };
+  } catch (error) {
+    return {
+      type: 'YOUTUBE_API_ERROR',
+      code: 0,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      retryable: true
+    };
+  }
 };

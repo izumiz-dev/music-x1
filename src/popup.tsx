@@ -12,7 +12,11 @@ const Popup = () => {
 
   useEffect(() => {
     // Check if API key is set
-    chrome.storage.sync.get(['geminiApiKey'], (result) => {
+    // Load saved playback rate and check API key
+    chrome.storage.sync.get(["defaultPlaybackRate", "geminiApiKey"], (result) => {
+      if (result.defaultPlaybackRate) {
+        setPlaybackRate(result.defaultPlaybackRate);
+      }
       setHasApiKey(!!result.geminiApiKey);
     });
 
@@ -21,11 +25,11 @@ const Popup = () => {
         const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
         const currentTab = tabs[0];
         console.log('Current URL:', currentTab?.url);
-        
+
         if (currentTab?.url?.includes('youtube.com/watch')) {
           const videoId = new URL(currentTab.url).searchParams.get('v');
           console.log('Video ID:', videoId);
-          
+
           if (videoId) {
             const video = await chrome.storage.local.get(videoId);
             const videoData = video[videoId];
@@ -48,6 +52,7 @@ const Popup = () => {
     checkIfMusicVideo();
     checkIsYouTube();
 
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (chrome.runtime.lastError) {
         console.error('tabs.query error:', chrome.runtime.lastError);
@@ -56,33 +61,26 @@ const Popup = () => {
         setCurrentTab(tabs[0]);
       }
     });
-
-    // Load saved playback rate
-    chrome.storage.local.get(["defaultPlaybackRate"], (result) => {
-      if (result.defaultPlaybackRate) {
-        setPlaybackRate(result.defaultPlaybackRate);
-      }
-    });
   }, []);
 
   const updatePlaybackRate = async (newRate: number, save: boolean = true) => {
     setPlaybackRate(newRate);
     if (save) {
-      await chrome.storage.local.set({ defaultPlaybackRate: newRate });
+      await chrome.storage.sync.set({ defaultPlaybackRate: newRate });
       // Send message to current tab to update playback rate
       if (currentTab?.id) {
         const delays = [1000, 2000, 3000]; // 段階的な遅延時間
-        
+
         for (let i = 0; i < delays.length; i++) {
           try {
             console.log(`[popup] Playback rate update attempt ${i + 1}/${delays.length}`);
             await new Promise(resolve => setTimeout(resolve, delays[i]));
 
             // 初期化状態の確認
-            const ready = await chrome.tabs.sendMessage(currentTab.id, { 
-              type: 'CHECK_READY' 
+            const ready = await chrome.tabs.sendMessage(currentTab.id, {
+              type: 'CHECK_READY'
             }).catch(() => false);
-            
+
             if (!ready) {
               console.log('[popup] Content script not ready, retrying...');
               continue;
@@ -92,12 +90,12 @@ const Popup = () => {
               type: 'SET_PLAYBACK_RATE',
               rate: newRate
             });
-            
+
             if (response?.success) {
               console.log('[popup] Playback rate updated successfully');
               return;
             }
-            
+
             console.warn('[popup] Failed to set playback rate:', response?.error || 'Unknown error');
           } catch (error) {
             console.error(`[popup] Update attempt ${i + 1} failed:`, error);

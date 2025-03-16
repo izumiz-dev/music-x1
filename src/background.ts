@@ -1,5 +1,5 @@
 import { fetchMusicOrNot } from './gemini';
-import { getVideoCategory, isMusicCategory } from './youtube';
+import { getVideoCategory, isMusicCategory, getVideoDetails } from './youtube';
 
 interface CacheData {
   isMusic: boolean;
@@ -54,9 +54,6 @@ const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
           if (cached[videoId]) {
             const { isMusic, detectionMethod } = cached[videoId];
             updateBadge(isMusic, detectionMethod, true);
-          } else {
-            // キャッシュがない場合は処理を開始
-            handleYouTubePage(tab.id!, videoId);
           }
         }
       } catch (error) {
@@ -99,7 +96,11 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
   }
 });
 
-async function getVideoRate(videoId: string, title: string): Promise<number> {
+async function getVideoRate(
+  videoId: string,
+  title: string,
+  categoryId: number | null = null
+): Promise<number> {
   try {
     const cachedResult = await chrome.storage.local.get(videoId);
     const storedData: CacheData | undefined = cachedResult[videoId];
@@ -113,34 +114,13 @@ async function getVideoRate(videoId: string, title: string): Promise<number> {
       isMusic = storedData.isMusic;
       detectionMethod = storedData.detectionMethod;
     } else {
-      // YouTube API Keyが設定されているか確認
-      const { youtubeApiKey } = await chrome.storage.sync.get(['youtubeApiKey']);
-      
-      if (youtubeApiKey) {
-        // YouTube APIが設定されている場合はカテゴリーを確認
-        console.log('[background] Checking YouTube category...');
-        const categoryResult = await getVideoCategory(videoId);
-        
-        if (typeof categoryResult === 'number') {
-          if (isMusicCategory(categoryResult)) {
-            console.log('[background] Music category detected via YouTube API');
-            isMusic = true;
-            detectionMethod = 'youtube';
-          } else {
-            // 音楽カテゴリー以外はGeminiで再判定
-            console.log(`[background] Non-music category (${categoryResult}), checking with Gemini...`);
-            isMusic = await fetchMusicOrNot(title);
-            detectionMethod = 'gemini';
-          }
-        } else {
-          // YouTube APIエラーの場合、Geminiで判定
-          console.log('[background] YouTube API error, falling back to Gemini...');
-          isMusic = await fetchMusicOrNot(title);
-          detectionMethod = 'gemini';
-        }
+      if (categoryId !== null && isMusicCategory(categoryId)) {
+        console.log('[background] Music category detected via YouTube API');
+        isMusic = true;
+        detectionMethod = 'youtube';
       } else {
-        // YouTube API Keyが設定されていない場合、直接Geminiで判定
-        console.log('[background] No YouTube API key configured, using Gemini...');
+        // 音楽カテゴリー以外またはcategoryIdが無い場合はGeminiで判定
+        console.log(`[background] Non-music category or no category, checking with Gemini...`);
         isMusic = await fetchMusicOrNot(title);
         detectionMethod = 'gemini';
       }
@@ -164,7 +144,7 @@ async function getVideoRate(videoId: string, title: string): Promise<number> {
     });
     updateBadge(isMusic, detectionMethod, true);
 
-    const { defaultPlaybackRate = 2.0 } = await chrome.storage.local.get(['defaultPlaybackRate']);
+    const { defaultPlaybackRate = 2.0 } = await chrome.storage.sync.get(['defaultPlaybackRate']);
     const rate = isMusic ? 1.0 : defaultPlaybackRate;
     console.log(`[background] Setting playback rate: ${rate} (isMusic: ${isMusic}, detected via ${detectionMethod})`);
     return rate;
@@ -233,18 +213,34 @@ async function trySendMessage(tabId: number, message: any, maxRetries = 3): Prom
 async function handleYouTubePage(tabId: number, videoId: string) {
   try {
     console.log('[background] Starting YouTube processing');
-    
-    const response = await trySendMessage(tabId, { type: 'CHECK_VIDEO' });
-    if (!response?.success || !response.title) {
-      console.log('[background] Failed to get title');
-      return;
+
+    // まずキャッシュをチェック
+    const cachedResult = await chrome.storage.local.get(videoId);
+    const storedData: CacheData | undefined = cachedResult[videoId];
+    const now = Date.now();
+
+    let rate: number;
+
+    if (storedData && (now - storedData.timestamp) < CACHE_EXPIRY) {
+      console.log('[background] Using cached music detection result');
+      const isMusic = storedData.isMusic;
+      const { defaultPlaybackRate = 2.0 } = await chrome.storage.sync.get(['defaultPlaybackRate']);
+      rate = isMusic ? 1.0 : defaultPlaybackRate;
+      updateBadge(isMusic, storedData.detectionMethod, true);
+    } else {
+      // キャッシュがない場合のみYouTube APIを呼び出し
+      console.log('[background] Cache miss - fetching from API');
+      const details = await getVideoDetails(videoId);
+      if ('type' in details) {
+        console.log('[background] Failed to get video details:', details.message);
+        return;
+      }
+      const pureTitle = details.title
+        .replace(/^\([0-9]+\)\s*/, '')
+        .replace(/\s*-\s*YouTube$/, '');
+
+      rate = await getVideoRate(videoId, pureTitle, details.categoryId);
     }
-
-    const pureTitle = response.title
-      .replace(/^\([0-9]+\)\s*/, '')
-      .replace(/\s*-\s*YouTube$/, '');
-
-    const rate = await getVideoRate(videoId, pureTitle);
 
     console.log('[background] Sending playback rate setting message:', rate);
     await trySendMessage(tabId, { 

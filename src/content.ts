@@ -102,14 +102,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   try {
     switch (message.type) {
-      case 'CHECK_VIDEO': {
-        // Verification request from background script
-        sendResponse({ 
-          title: document.title,
-          success: true
-        });
-        break;
-      }
       case 'SET_PLAYBACK_RATE': {
         // Playback rate setting request
         console.log('[content] Received playback rate setting message:', message.rate);

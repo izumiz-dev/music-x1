@@ -16,61 +16,61 @@ The extension uses a sophisticated detection system combining YouTube's category
 ```mermaid
 flowchart TD
     Start[New YouTube Video] --> Cache{Check Cache}
-    Cache -->|Hit| GetCache[Load Cached Result]
-    Cache -->|Miss| ApiKey{YouTube API Key<br>Configured?}
+    Cache -->|Hit| UseCached[Use Cached Result]
+    Cache -->|Miss| Category[Get Video Category & Title]
     
-    GetCache --> SetSpeed[Set Speed]
+    UseCached -->|Music| Speed1[Speed: 1x]
+    UseCached -->|Non-Music| Speed2[Speed: Default]
     
-    ApiKey -->|Yes| Category[Get Video Category]
-    ApiKey -->|No| Gemini1[Use Gemini AI]
-    
-    Category -->|Success| Check{Is Music<br>Category?}
-    Category -->|Error| Gemini2[Use Gemini AI]
+    Category --> Check{Is Music<br>Category?}
     
     Check -->|Yes| Music[Set as Music]
-    Check -->|No| Gemini3[Use Gemini AI]
+    Check -->|No| Gemini[Use Gemini AI]
     
-    Gemini1 --> Analysis1{AI Analysis}
-    Gemini2 --> Analysis1
-    Gemini3 --> Analysis1
-    
-    Analysis1 -->|Music| Music
-    Analysis1 -->|Non-Music| NonMusic[Set as Non-Music]
+    Gemini --> Analysis{AI Analysis}
+    Analysis -->|Music| Music
+    Analysis -->|Non-Music| NonMusic[Set as Non-Music]
     
     Music --> Cache1[Update Cache]
     NonMusic --> Cache2[Update Cache]
     
-    Cache1 --> SetSpeed
-    Cache2 --> SetSpeed
-    
-    SetSpeed -->|Music| Speed1[Speed: 1x]
-    SetSpeed -->|Non-Music| Speed2[Speed: 1x-3x]
+    Cache1 --> Speed1
+    Cache2 --> Speed2
 ```
 
 ### Content Detection Details
 
-1. **YouTube Category-based Detection** (when YouTube API Key is configured):
-   - If category is "Music" (ID: 10) → Instantly marked as music content
-   - For all other categories → Further analyzed by Gemini AI
+1. **Cache-First Approach**:
+   - Every video check starts with a cache lookup
+   - If valid cache exists (less than 28 days old):
+     - Uses cached result directly
+     - Skips all API calls (both YouTube and Gemini)
+     - Immediately sets playback speed based on cached result
+   - Cache includes:
+     - Music/Non-music determination
+     - Detection method used (youtube/gemini)
+     - Timestamp for expiry checking
 
-2. **Fallback to AI Detection**:
-   - When YouTube API Key is not configured
-   - When YouTube API requests fail
-   - For entertainment category content
+2. **Fresh Detection Flow** (only when cache misses):
+   - First tries YouTube Data API to get video category
+   - If category is "Music" (ID: 10):
+     - Instantly marked as music
+     - No Gemini API call needed
+   - For non-music categories:
+     - Uses Gemini AI to analyze video title
+     - Makes final determination based on AI analysis
 
-3. **Caching**:
-   - Detection results are cached to minimize API usage
-   - Cache includes both YouTube API and Gemini AI results
-   - Cache stores detection method along with the result
-   - Cache is keyed by video ID and expires after 28 days
-   - Cache helps reduce both YouTube API quota usage and Gemini API costs
+3. **Performance Benefits**:
+   - Zero external API calls when cache hit
+   - Maximum one YouTube API call per cache miss
+   - Gemini API only called when needed (non-music category)
+   - Significant reduction in API usage and latency
 
 ### API Keys
 
-- **YouTube Data API Key** (Optional):
-  - Enables faster category-based detection
-  - Reduces Gemini AI API usage
-  - Not required for basic functionality
+- **YouTube Data API Key** (Required):
+  - Provides accurate video detail retrieval via YouTube Data API
+  - Essential for extension functionality
 
 - **Google Gemini API Key** (Required):
   - Used for AI-based content analysis
