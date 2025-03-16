@@ -69,14 +69,14 @@ const Popup = () => {
       await chrome.storage.sync.set({ defaultPlaybackRate: newRate });
       // Send message to current tab to update playback rate
       if (currentTab?.id) {
-        const delays = [1000, 2000, 3000]; // 段階的な遅延時間
+        const delays = [1000, 2000, 3000]; // Gradual delay times
 
         for (let i = 0; i < delays.length; i++) {
           try {
             console.log(`[popup] Playback rate update attempt ${i + 1}/${delays.length}`);
             await new Promise(resolve => setTimeout(resolve, delays[i]));
 
-            // 初期化状態の確認
+            // Check initialization status
             const ready = await chrome.tabs.sendMessage(currentTab.id, {
               type: 'CHECK_READY'
             }).catch(() => false);

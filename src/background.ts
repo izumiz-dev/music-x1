@@ -9,7 +9,7 @@ interface CacheData {
 
 const CACHE_EXPIRY = 28 * 24 * 60 * 60 * 1000; 
 
-// バッジ表示を更新し、判定方法も表示
+// Update badge display and show detection method
 const updateBadge = (isMusic: boolean, detectionMethod: 'youtube' | 'gemini' | null, visible: boolean = true) => {
   const text = visible ? (isMusic ? '♪' : '🎞️') : '';
   const color = isMusic ? '#4CAF50' : '#808080';
@@ -22,7 +22,7 @@ const updateBadge = (isMusic: boolean, detectionMethod: 'youtube' | 'gemini' | n
   chrome.action.setTitle({ title });
 };
 
-// URLに基づいてタブの種類を判定する
+// Determine tab type based on URL
 type TabType = 'youtube_video' | 'youtube_other' | 'other';
 
 const getTabType = (url: string | undefined): TabType => {
@@ -38,7 +38,7 @@ const getTabType = (url: string | undefined): TabType => {
   return 'other';
 };
 
-// バッジを適切に更新する
+// Update badge appropriately
 const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
   const tabType = getTabType(tab.url);
   console.log('[background] Updating badge for tab type:', tabType);
@@ -49,7 +49,7 @@ const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
         const url = new URL(tab.url!);
         const videoId = url.searchParams.get('v');
         if (videoId) {
-          // キャッシュから状態を取得
+          // Get state from cache
           const cached = await chrome.storage.local.get(videoId);
           if (cached[videoId]) {
             const { isMusic, detectionMethod } = cached[videoId];
@@ -63,30 +63,30 @@ const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
       break;
     }
     case 'youtube_other':
-      // YouTube.comの他のページではバッジを非表示
+      // Hide badge on other YouTube.com pages
       updateBadge(false, null, false);
       break;
     case 'other':
-      // YouTube以外のページではバッジを非表示
+      // Hide badge on non-YouTube pages
       updateBadge(false, null, false);
       break;
   }
 };
 
-// タブの更新を監視
+// Monitor tab updates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') {
     updateBadgeForTab(tab);
   }
 });
 
-// タブのアクティブ化を監視
+// Monitor tab activation
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
   updateBadgeForTab(tab);
 });
 
-// ウィンドウにフォーカスが当たった時の処理
+// Handle window focus change
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
   if (windowId !== chrome.windows.WINDOW_ID_NONE) {
     const [tab] = await chrome.tabs.query({ active: true, windowId });
@@ -119,13 +119,13 @@ async function getVideoRate(
         isMusic = true;
         detectionMethod = 'youtube';
       } else {
-        // 音楽カテゴリー以外またはcategoryIdが無い場合はGeminiで判定
+        // Use Gemini for detection if not music category or no categoryId
         console.log(`[background] Non-music category or no category, checking with Gemini...`);
         isMusic = await fetchMusicOrNot(title);
         detectionMethod = 'gemini';
       }
 
-      // キャッシュを更新
+      // Update cache
       await chrome.storage.local.set({
         [videoId]: {
           isMusic,
@@ -135,7 +135,7 @@ async function getVideoRate(
       });
     }
 
-    // バッジの状態を保存
+    // Save badge state
     await chrome.storage.local.set({ 
       lastBadgeState: { 
         isMusic,
@@ -151,7 +151,7 @@ async function getVideoRate(
 
   } catch (error) {
     console.error('Error in getVideoRate:', error);
-    return 1.0; // エラー時はデフォルトの再生速度
+    return 1.0; // Default playback speed on error
   }
 }
 
@@ -184,13 +184,13 @@ async function waitForContentScript(tabId: number, maxAttempts = 20): Promise<bo
 async function trySendMessage(tabId: number, message: any, maxRetries = 3): Promise<any> {
   console.log('[background] Attempting to send message');
   
-  // 最初にコンテンツスクリプトの初期化を待つ
+  // Wait for content script initialization first
   const isReady = await waitForContentScript(tabId);
   if (!isReady) {
     throw new Error('Content script failed to initialize');
   }
 
-  // メッセージ送信の再試行
+  // Retry message sending
   for (let i = 0; i < maxRetries; i++) {
     try {
       console.log(`[background] Message send attempt ${i + 1}/${maxRetries}`);
@@ -214,7 +214,7 @@ async function handleYouTubePage(tabId: number, videoId: string) {
   try {
     console.log('[background] Starting YouTube processing');
 
-    // まずキャッシュをチェック
+    // Check cache first
     const cachedResult = await chrome.storage.local.get(videoId);
     const storedData: CacheData | undefined = cachedResult[videoId];
     const now = Date.now();
@@ -228,7 +228,7 @@ async function handleYouTubePage(tabId: number, videoId: string) {
       rate = isMusic ? 1.0 : defaultPlaybackRate;
       updateBadge(isMusic, storedData.detectionMethod, true);
     } else {
-      // キャッシュがない場合のみYouTube APIを呼び出し
+      // Only call YouTube API if no cache exists
       console.log('[background] Cache miss - fetching from API');
       const details = await getVideoDetails(videoId);
       if ('type' in details) {

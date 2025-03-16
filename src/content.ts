@@ -2,14 +2,14 @@
 
 let isInitialized = false;
 
-// YouTubeのSPAナビゲーション後の初期化を処理
+// Handle initialization after YouTube SPA navigation
 const handleNavigation = () => {
   console.log('[content] Handling navigation');
   isInitialized = false;
   initializeContentScript();
 };
 
-// video要素を監視するための設定
+// Configuration for video element observation
 const videoObserverConfig = {
   childList: true,
   subtree: true,
@@ -17,7 +17,7 @@ const videoObserverConfig = {
   characterData: false
 };
 
-// video要素を探して初期化する関数
+// Function to find and initialize video element
 const findAndInitializeVideo = () => {
   const video = document.querySelector('video.html5-main-video');
   if (video) {
@@ -32,7 +32,7 @@ const findAndInitializeVideo = () => {
   return false;
 };
 
-// 初期化を試みる関数（リトライ付き）
+// Function to attempt initialization (with retries)
 const tryInitialize = async (maxAttempts = 10) => {
   console.log(`[content] Attempting initialization (max ${maxAttempts} attempts)`);
   for (let i = 0; i < maxAttempts; i++) {
@@ -44,14 +44,14 @@ const tryInitialize = async (maxAttempts = 10) => {
   console.log('[content] Failed to find video element after all attempts');
 };
 
-// 動的なDOM変更を監視
+// Monitor dynamic DOM changes
 const observer = new MutationObserver((mutations) => {
   if (!isInitialized) {
     findAndInitializeVideo();
   }
 });
 
-// SPAナビゲーションを監視
+// Monitor SPA navigation
 const navigationObserver = new MutationObserver(() => {
   const currentUrl = location.href;
   if (currentUrl.includes('youtube.com/watch')) {
@@ -59,25 +59,25 @@ const navigationObserver = new MutationObserver(() => {
   }
 });
 
-// 初期化確認の実装
+// Implementation of initialization check
 const initializeContentScript = async () => {
   console.log('[content] Starting initialization process');
   
-  // 即時チェック
+  // Immediate check
   if (!findAndInitializeVideo()) {
-    // video要素の監視を開始
+    // Start monitoring video element
     observer.observe(document.body, videoObserverConfig);
-    // 非同期で初期化を試みる
+    // Try initialization asynchronously
     tryInitialize();
   }
 };
 
-// 初期セットアップ
+// Initial setup
 console.log('[content] Setting up content script');
 navigationObserver.observe(document, { subtree: true, childList: true });
 initializeContentScript();
 
-// DOMContentLoaded時の初期化
+// Initialization on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[content] DOMContentLoaded event fired');
   initializeContentScript();
@@ -85,13 +85,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Setup message listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // 初期化状態の確認
+  // Check initialization status
   if (message.type === 'CHECK_READY') {
     sendResponse(isInitialized);
     return true;
   }
 
-  // 未初期化の場合はエラーを返す
+  // Return error if not initialized
   if (!isInitialized && message.type !== 'CHECK_READY') {
     sendResponse({ 
       success: false, 

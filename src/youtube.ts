@@ -85,7 +85,7 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
 };
 
 export const isMusicCategory = (categoryId: number, liveBroadcastContent?: string): boolean => {
-  // ライブ配信の場合は音楽とみなす
+  // Consider live broadcasts as music
   if (liveBroadcastContent === "live") {
     return true;
   }
