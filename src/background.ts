@@ -22,31 +22,81 @@ const updateBadge = (isMusic: boolean, detectionMethod: 'youtube' | 'gemini' | n
   chrome.action.setTitle({ title });
 };
 
-// YouTubeのタブかどうかを判定する
-const isYouTubeTab = (url: string | undefined): boolean => {
-  return url?.includes('youtube.com/watch') ?? false;
+// URLに基づいてタブの種類を判定する
+type TabType = 'youtube_video' | 'youtube_other' | 'other';
+
+const getTabType = (url: string | undefined): TabType => {
+  if (!url) return 'other';
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes('youtube.com')) {
+      return urlObj.pathname.startsWith('/watch') ? 'youtube_video' : 'youtube_other';
+    }
+  } catch (error) {
+    console.error('[background] Error parsing URL:', error);
+  }
+  return 'other';
 };
 
-// タブがアクティブになったときの処理
+// バッジを適切に更新する
+const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
+  const tabType = getTabType(tab.url);
+  console.log('[background] Updating badge for tab type:', tabType);
+
+  switch (tabType) {
+    case 'youtube_video': {
+      try {
+        const url = new URL(tab.url!);
+        const videoId = url.searchParams.get('v');
+        if (videoId) {
+          // キャッシュから状態を取得
+          const cached = await chrome.storage.local.get(videoId);
+          if (cached[videoId]) {
+            const { isMusic, detectionMethod } = cached[videoId];
+            updateBadge(isMusic, detectionMethod, true);
+          } else {
+            // キャッシュがない場合は処理を開始
+            handleYouTubePage(tab.id!, videoId);
+          }
+        }
+      } catch (error) {
+        console.error('[background] Error processing YouTube URL:', error);
+        updateBadge(false, null, false);
+      }
+      break;
+    }
+    case 'youtube_other':
+      // YouTube.comの他のページではバッジを非表示
+      updateBadge(false, null, false);
+      break;
+    case 'other':
+      // YouTube以外のページではバッジを非表示
+      updateBadge(false, null, false);
+      break;
+  }
+};
+
+// タブの更新を監視
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete') {
+    updateBadgeForTab(tab);
+  }
+});
+
+// タブのアクティブ化を監視
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
   const tab = await chrome.tabs.get(activeInfo.tabId);
-  const isYouTube = isYouTubeTab(tab.url);
-  
-  if (isYouTube && tab.url) {
-    try {
-      const url = new URL(tab.url);
-      const videoId = url.searchParams.get('v');
-      if (videoId) {
-        handleYouTubePage(tab.id!, videoId);
-        return;
-      }
-    } catch (error) {
-      console.error('Error processing YouTube URL:', error);
+  updateBadgeForTab(tab);
+});
+
+// ウィンドウにフォーカスが当たった時の処理
+chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  if (windowId !== chrome.windows.WINDOW_ID_NONE) {
+    const [tab] = await chrome.tabs.query({ active: true, windowId });
+    if (tab) {
+      updateBadgeForTab(tab);
     }
   }
-  
-  // YouTubeタブでない場合やURLの解析に失敗した場合は、バッジを非表示にする
-  updateBadge(false, null, false);
 });
 
 async function getVideoRate(videoId: string, title: string): Promise<number> {
