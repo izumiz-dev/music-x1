@@ -10,6 +10,7 @@ interface YouTubeVideoResponse {
     snippet: {
       title: string;
       categoryId: string;
+      liveBroadcastContent: string;
     };
   }>;
 }
@@ -83,12 +84,16 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
   }
 };
 
-export const isMusicCategory = (categoryId: number): boolean => {
+export const isMusicCategory = (categoryId: number, liveBroadcastContent?: string): boolean => {
+  // ライブ配信の場合は音楽とみなす
+  if (liveBroadcastContent === "live") {
+    return true;
+  }
   // YouTube category ID 10 is "Music"
   return categoryId === 10;
 };
 
-export const getVideoDetails = async (videoId: string): Promise<{ title: string; categoryId: number } | YouTubeApiError> => {
+export const getVideoDetails = async (videoId: string): Promise<{ title: string; categoryId: number; liveBroadcastContent: string } | YouTubeApiError> => {
   try {
     const apiKey = await getYouTubeApiKey();
     if (!apiKey) {
@@ -119,7 +124,8 @@ export const getVideoDetails = async (videoId: string): Promise<{ title: string;
       };
     }
     const data: YouTubeVideoResponse = await response.json();
-    if (!data.items?.[0]?.snippet?.title || !data.items?.[0]?.snippet?.categoryId) {
+    console.log(data);
+    if (!data.items?.[0]?.snippet?.title || !data.items?.[0]?.snippet?.categoryId || !data.items?.[0]?.snippet?.liveBroadcastContent) {
       return {
         type: 'YOUTUBE_API_ERROR',
         code: 404,
@@ -129,7 +135,8 @@ export const getVideoDetails = async (videoId: string): Promise<{ title: string;
     }
     return {
       title: data.items[0].snippet.title,
-      categoryId: parseInt(data.items[0].snippet.categoryId, 10)
+      categoryId: parseInt(data.items[0].snippet.categoryId, 10),
+      liveBroadcastContent: data.items[0].snippet.liveBroadcastContent
     };
   } catch (error) {
     return {

@@ -242,7 +242,7 @@ async function handleYouTubePage(tabId: number, videoId: string) {
       rate = await getVideoRate(videoId, pureTitle, details.categoryId);
     }
 
-    console.log('[background] Sending playback rate setting message:', rate);
+    console.log('[background] Seonding playback rate setting message:', rate);
     await trySendMessage(tabId, { 
       type: 'SET_PLAYBACK_RATE',
       rate 
