@@ -1,12 +1,14 @@
+import { apiKeyManager, ApiKeyType } from './apiKeyManager';
+
 const API_END_POINT: string =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite-preview-02-05:generateContent';
 
 const getGeminiApiKey = async (): Promise<string> => {
-  const result = await chrome.storage.sync.get(['geminiApiKey']);
-  if (!result.geminiApiKey) {
+  const apiKey = await apiKeyManager.getApiKey(ApiKeyType.GEMINI);
+  if (!apiKey) {
     throw new Error('Gemini API key is not set. Please configure it in the extension settings.');
   }
-  return result.geminiApiKey;
+  return apiKey;
 };
 
 interface GeminiResponse {

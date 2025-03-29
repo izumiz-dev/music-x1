@@ -33,6 +33,60 @@ flowchart TD
     Speed2 --> Range[Range: 1x-3x<br>0.1x increments]
 ```
 
+## Security & API Key Management
+
+The extension implements a robust security system for handling API keys with encryption and secure memory management.
+
+```mermaid
+flowchart TD
+    Start[API Key Request] --> Cache{Check Memory Cache}
+    Cache -->|Hit & Valid| ReturnCached[Return Cached Key]
+    Cache -->|Miss or Expired| Storage[Fetch from Storage]
+    
+    Storage --> Encrypted{Is Key Available?}
+    Encrypted -->|Yes| Decrypt[Decrypt Key]
+    Encrypted -->|No| Empty[Return Empty]
+    
+    Decrypt --> ValidDecrypt{Decryption Success?}
+    ValidDecrypt -->|Yes| UpdateCache[Update Memory Cache]
+    ValidDecrypt -->|No| Empty
+    
+    UpdateCache --> ReturnDecrypted[Return Decrypted Key]
+    
+    Shutdown[Extension Shutdown] --> ClearCache[Clear Memory Cache]
+```
+
+1. **Secure Key Storage**:
+   - API keys are never stored in plaintext
+   - AES-GCM encryption with 256-bit keys
+   - Unique encryption key for each stored value
+   - Full encryption structure:
+     ```typescript
+     {
+       data: Uint8Array,  // Encrypted API key
+       iv: Uint8Array,    // Initialization vector
+       key: Uint8Array    // Encryption key (wrapped)
+     }
+     ```
+
+2. **Memory Safety Features**:
+   - In-memory caching with 30-minute expiry
+   - Automatic cache clearing on extension startup/shutdown
+   - API keys only briefly in memory during use
+   - Cache data structure:
+     ```typescript
+     interface KeyCache {
+       value: string;     // Decrypted key
+       timestamp: number; // Time when cached
+     }
+     ```
+
+3. **Key Management Classes**:
+   - Centralized `ApiKeyManager` class
+   - Typed key enumeration for different API services
+   - `crypto.ts` utility for encryption operations
+   - Zero-trust approach with explicit cleanup operations
+
 ## Content Detection Details
 
 1. **Cache-First Approach**:
@@ -104,22 +158,36 @@ The extension provides real-time feedback through the browser extension icon:
    - Handles cache operations
    - Coordinates API calls
    - Updates visual indicators
+   - Initializes and cleans up security components
 
 3. **API Integrations**:
    - YouTube Data API (`youtube.ts`):
      - Video category retrieval
      - Live broadcast detection
      - Error handling with retries
+     - Secure API key retrieval
    - Gemini API (`gemini.ts`):
      - Structured content analysis
      - JSON response schema
      - Retry mechanism with backoff
+     - Secure API key retrieval
 
-4. **User Interface** (`popup.tsx`):
+4. **Security Components**:
+   - API Key Manager (`apiKeyManager.ts`):
+     - Secure key storage and retrieval
+     - Memory cache with timed expiry
+     - Type-safe API key handling
+   - Crypto Utilities (`crypto.ts`):
+     - AES-GCM encryption/decryption
+     - Binary data handling
+     - Error recovery for crypto operations
+
+5. **User Interface** (`popup.tsx` & `options.tsx`):
    - Real-time playback control
    - Visual feedback
    - Settings access
    - Responsive speed adjustment
+   - Secure API key configuration
 
 ## Error Recovery
 

@@ -1,3 +1,5 @@
+import { apiKeyManager, ApiKeyType } from './apiKeyManager';
+
 interface YouTubeApiError {
   type: 'YOUTUBE_API_ERROR';
   code: number;
@@ -16,11 +18,11 @@ interface YouTubeVideoResponse {
 }
 
 const getYouTubeApiKey = async (): Promise<string> => {
-  const result = await chrome.storage.sync.get(['youtubeApiKey']);
-  if (!result.youtubeApiKey) {
+  const apiKey = await apiKeyManager.getApiKey(ApiKeyType.YOUTUBE);
+  if (!apiKey) {
     throw new Error('YouTube API key is not set. Please configure it in the extension settings.');
   }
-  return result.youtubeApiKey;
+  return apiKey;
 };
 
 export const extractVideoId = (url: string): string | null => {

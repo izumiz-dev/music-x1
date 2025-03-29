@@ -1,5 +1,14 @@
 import { fetchMusicOrNot } from './gemini';
-import { getVideoCategory, isMusicCategory, getVideoDetails } from './youtube';
+import { isMusicCategory, getVideoDetails } from './youtube';
+import { apiKeyManager } from './apiKeyManager';
+
+// Clear cache when extension starts (for security)
+apiKeyManager.clearCache();
+
+// Clear cache when extension is disabled or terminated
+chrome.runtime.onSuspend.addListener(() => {
+  apiKeyManager.clearCache();
+});
 
 interface CacheData {
   isMusic: boolean;
@@ -242,7 +251,7 @@ async function handleYouTubePage(tabId: number, videoId: string) {
       rate = await getVideoRate(videoId, pureTitle, details.categoryId);
     }
 
-    console.log('[background] Seonding playback rate setting message:', rate);
+    console.log('[background] Sending playback rate setting message:', rate);
     await trySendMessage(tabId, { 
       type: 'SET_PLAYBACK_RATE',
       rate 
