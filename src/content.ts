@@ -6,7 +6,35 @@ let isInitialized = false;
 const handleNavigation = () => {
   console.log('[content] Handling navigation');
   isInitialized = false;
+  
+  // Start initialization process
   initializeContentScript();
+  
+  // A single notification is sufficient, so reduce the number of notifications
+  setTimeout(() => {
+    console.log('[content] Notifying background script about navigation');
+    try {
+      chrome.runtime.sendMessage({ 
+        type: 'PAGE_NAVIGATION',
+        url: window.location.href
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error('[content] Error sending navigation message:', chrome.runtime.lastError);
+          // Only try again in case of error
+          setTimeout(() => {
+            chrome.runtime.sendMessage({ 
+              type: 'PAGE_NAVIGATION',
+              url: window.location.href
+            });
+          }, 1000);
+        } else if (response?.success) {
+          console.log('[content] Background script acknowledged navigation');
+        }
+      });
+    } catch (e) {
+      console.error('[content] Failed to notify background about navigation:', e);
+    }
+  }, 1000);
 };
 
 // Configuration for video element observation
@@ -33,7 +61,7 @@ const findAndInitializeVideo = () => {
 };
 
 // Function to attempt initialization (with retries)
-const tryInitialize = async (maxAttempts = 10) => {
+const tryInitialize = async (maxAttempts = 15) => {
   console.log(`[content] Attempting initialization (max ${maxAttempts} attempts)`);
   for (let i = 0; i < maxAttempts; i++) {
     if (findAndInitializeVideo()) {
@@ -69,6 +97,14 @@ const initializeContentScript = async () => {
     observer.observe(document.body, videoObserverConfig);
     // Try initialization asynchronously
     tryInitialize();
+    
+    // Also check after window load event completes
+    window.addEventListener('load', () => {
+      console.log('[content] Window load event fired');
+      if (!isInitialized) {
+        findAndInitializeVideo();
+      }
+    });
   }
 };
 
@@ -104,21 +140,54 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     switch (message.type) {
       case 'SET_PLAYBACK_RATE': {
         // Playback rate setting request
-        console.log('[content] Received playback rate setting message:', message.rate);
-        const videoElement = document.querySelector('video.html5-main-video');
-        if (videoElement instanceof HTMLVideoElement) {
-          console.log('[content] Current playback rate:', videoElement.playbackRate);
-          videoElement.playbackRate = message.rate;
-          console.log('[content] Set new playback rate:', message.rate);
-          sendResponse({ success: true });
-        } else {
-          console.log('[content] Video element not found');
-          sendResponse({ 
-            success: false, 
-            error: 'Video player not found' 
-          });
-        }
-        break;
+        console.log('[content] Received playback rate setting message:', message.rate, 'save:', message.save);
+        
+        // First check if the message is explicitly marked as from a disabled state toggle
+        // This allows resetting to 1x when disabling the extension
+        const isDisabledReset = message.save === false && message.rate === 1.0 && message.fromDisabledToggle;
+        
+        // Get extension enabled state
+        chrome.storage.sync.get(['extensionEnabled'], async (result) => {
+          const isEnabled = result.extensionEnabled !== false; // Default to true if not set
+          
+          // Only proceed if extension is enabled OR this is a reset from disabling
+          if (isEnabled || isDisabledReset) {
+            const videoElement = document.querySelector('video.html5-main-video');
+            if (videoElement instanceof HTMLVideoElement) {
+              console.log('[content] Current playback rate:', videoElement.playbackRate);
+              videoElement.playbackRate = message.rate;
+              
+              // YouTube sometimes resets the rate, so set again after a short delay
+              setTimeout(() => {
+                try {
+                  if (videoElement instanceof HTMLVideoElement && videoElement.playbackRate !== message.rate) {
+                    videoElement.playbackRate = message.rate;
+                    console.log('[content] Re-applied playback rate:', message.rate);
+                  }
+                } catch (e) {
+                  console.error('[content] Error in delayed rate setting:', e);
+                }
+              }, 500);
+              
+              console.log('[content] Set new playback rate:', message.rate);
+              sendResponse({ success: true });
+            } else {
+              console.log('[content] Video element not found');
+              sendResponse({ 
+                success: false, 
+                error: 'Video player not found' 
+              });
+            }
+          } else {
+            console.log('[content] Extension is disabled, ignoring playback rate change');
+            sendResponse({
+              success: false,
+              error: 'Extension is disabled'
+            });
+          }
+        });
+        
+        return true; // Required for async response
       }
     }
   } catch (error) {

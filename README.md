@@ -18,11 +18,32 @@
 
 A Chrome extension that leverages YouTube Data API and Google Gemini AI to detect music content on YouTube automatically and adjusts playback speed accordingly:
 - For music content: Automatically sets to 1x speed for optimal listening experience
-- For non-music content: Allows speed adjustment between 1x and 2.5x with 0.1x increments
+- For non-music content: Allows speed adjustment between 1x and 3x with 0.1x increments
+- Global toggle: Quickly enable or disable the extension with a single click when needed
 
 For detailed information about the detection system and internal workings, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 *Read this in other languages: [日本語](README_JA.md)*
+
+## Usage
+
+### Basic Features
+
+- The extension automatically detects when you're watching a music video on YouTube
+- For music videos, playback speed is locked to 1x for optimal listening
+- For non-music videos, you can adjust playback speed from 1x to 3x
+
+### Extension Toggle
+
+- Click the extension icon to open the popup panel
+- Use the toggle switch in the top-right corner to enable/disable the extension
+- When disabled:
+  - All videos play at normal (1x) speed
+  - Speed controls are inactive
+  - Badge icon is hidden
+- When enabled:
+  - The extension resumes normal operation
+  - Current video is analyzed and speed is adjusted accordingly
 
 ## Installation
 

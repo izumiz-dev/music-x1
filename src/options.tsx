@@ -15,11 +15,11 @@ const Options = () => {
       try {
         setLoading(true);
         
-        // 安全に暗号化されたAPIキーを取得
+        // Securely retrieve encrypted API keys
         const geminiKey = await apiKeyManager.getApiKey(ApiKeyType.GEMINI);
         const youtubeKey = await apiKeyManager.getApiKey(ApiKeyType.YOUTUBE);
         
-        // デフォルト再生速度を取得
+        // Get default playback rate
         const result = await chrome.storage.sync.get(['defaultPlaybackRate']);
         
         if (geminiKey) {
@@ -32,8 +32,8 @@ const Options = () => {
           setDefaultPlaybackRate(result.defaultPlaybackRate);
         }
       } catch (error) {
-        console.error('設定の読み込み中にエラーが発生しました:', error);
-        setStatus('設定の読み込みに失敗しました');
+        console.error('Error loading settings:', error);
+        setStatus('Failed to load settings');
       } finally {
         setLoading(false);
       }
@@ -49,13 +49,13 @@ const Options = () => {
     }
 
     try {
-      setStatus('保存中...');
+      setStatus('Saving...');
       
-      // APIキーを暗号化して保存
+      // Encrypt and save API keys
       await apiKeyManager.saveApiKey(ApiKeyType.GEMINI, geminiApiKey.trim());
       await apiKeyManager.saveApiKey(ApiKeyType.YOUTUBE, youtubeApiKey.trim());
       
-      // デフォルト再生速度を保存
+      // Save default playback rate
       await chrome.storage.sync.set({ defaultPlaybackRate });
       
       setStatus('Settings saved');
@@ -63,8 +63,8 @@ const Options = () => {
         setStatus('');
       }, 3000);
     } catch (error) {
-      console.error('設定の保存中にエラーが発生しました:', error);
-      setStatus('設定の保存に失敗しました');
+      console.error('Error saving settings:', error);
+      setStatus('Failed to save settings');
     }
   };
 

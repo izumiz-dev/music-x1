@@ -2,7 +2,7 @@
 
 ## Detection System Overview
 
-The extension uses a sophisticated detection system combining YouTube's category data, live broadcast status, and AI-based content analysis.
+The extension uses a sophisticated detection system combining YouTube's category data and AI-based content analysis to identify music videos and automatically adjust playback speed.
 
 ```mermaid
 flowchart TD
@@ -13,11 +13,9 @@ flowchart TD
     UseCached -->|Music| Speed1[Speed: 1x]
     UseCached -->|Non-Music| Speed2[Speed: User Default]
     
-    GetDetails --> IsLive{Is Live<br>Broadcast?}
-    IsLive -->|Yes| Music[Set as Music]
-    IsLive -->|No| Category{Is Music<br>Category?}
+    GetDetails --> Category{Is Music<br>Category?}
     
-    Category -->|Yes| Music
+    Category -->|Yes| Music[Set as Music]
     Category -->|No| Gemini[Use Gemini AI]
     
     Gemini --> Analysis{AI Analysis}
@@ -108,14 +106,11 @@ flowchart TD
 2. **Fresh Detection Flow**:
    - Triggered on cache miss or expired cache
    - Sequential detection steps:
-     1. Live Broadcast Check
-        - Live broadcasts automatically marked as music content
-        - Prevents speed-up during live performances/streams
-     2. YouTube Category Check
+     1. YouTube Category Check
         - Uses YouTube Data API
         - Category ID 10 = Music content
         - Most reliable when available
-     3. Gemini AI Analysis
+     2. Gemini AI Analysis
         - Used when YouTube category is non-music/unclear
         - Analyzes video title using structured prompt
         - Handles multiple languages (JP, EN, etc.)
@@ -130,20 +125,98 @@ flowchart TD
      - Exponential backoff (1s, 2s delays)
      - Fallback to default speed on failure
 
+## Extension State Management
+
+The extension implements a global toggle system that allows users to enable or disable all functionality at once:
+
+```mermaid
+flowchart TD
+    Toggle[Toggle Switch] --> State{Extension<br>Enabled?}
+    State -->|Yes| EnableFeatures[Enable All Features]
+    State -->|No| DisableFeatures[Disable All Features]
+    
+    DisableFeatures --> ResetSpeed[Reset Playback to 1x]
+    DisableFeatures --> HideBadge[Hide Badge]
+    DisableFeatures --> DisableSlider[Disable Speed Controls]
+    DisableFeatures --> GrayIcon[Show Gray Icon]
+    
+    EnableFeatures --> RestoreBadge[Restore Badge]
+    EnableFeatures --> EnableDetection[Enable Detection]
+    EnableFeatures --> EnableControls[Enable Speed Controls]
+    EnableFeatures --> ColorIcon[Show Color Icon]
+    
+    VideoChange[New Video] --> CheckState{Is Extension<br>Enabled?}
+    CheckState -->|Yes| RunDetection[Run Detection Flow]
+    CheckState -->|No| Skip[Skip Detection<br>Keep at 1x]
+```
+
+1. **Global State Management**:
+   - Centralized `extensionEnabled` state in Chrome storage
+   - Default enabled (true) if not explicitly set
+   - Synchronized across all components
+
+2. **Toggle Behavior**:
+   - When disabled:
+     - All videos play at 1x speed regardless of content type
+     - Speed slider becomes disabled with overlay message
+     - Badge icon is hidden
+     - Extension icon changes to grayscale
+     - All playback rate change requests are ignored
+   - When enabled:
+     - Normal detection and speed adjustment resumes
+     - Badge and controls are restored
+     - Extension icon returns to colored version
+     - Current video is re-analyzed
+
+3. **Implementation Details**:
+   - Popup component handles UI state and toggle interactions
+   - Background script enforces global state across all tabs
+   - Content script respects global state for all speed changes
+   - Special handling for 1x reset when disabling
+
 ## Visual Feedback System
 
 The extension provides real-time feedback through the browser extension icon:
+
+- **Icon Variations**:
+  - Colored icon: Extension is enabled
+  - Grayscale icon: Extension is disabled
 
 - **Icon Badge**:
   - 🎵 (Green): Music content detected
   - 🎞️ (Gray): Non-music content
   - Badge shows detection method on hover (youtube/gemini)
+  - Badge is hidden when extension is disabled
 
 - **Popup Interface**:
   - Shows current content type
   - For non-music: Adjustable speed slider (1x-3x, 0.1x steps)
   - For music: Fixed at 1x with visual indicator
+  - Global extension toggle switch (enabled/disabled)
+  - Disabled state overlay for speed controls
   - API configuration status
+
+## Performance Optimizations
+
+1. **Icon Update Throttling**:
+   - Icon updates are tracked and throttled to minimize browser resource usage
+   - Minimum time between icon updates is enforced (2 seconds)
+   - Current icon state is stored to prevent redundant updates
+
+2. **Duplicate Processing Prevention**:
+   - Active video processing is tracked to prevent redundant processing
+   - Unique tab ID and video ID combinations are used as tracking keys
+   - Processing is skipped if the same video is already being handled
+
+3. **Navigation Message Optimization**:
+   - Recent URL processing is tracked to prevent rapid duplicate processing
+   - Navigation events include response handling with retry mechanisms
+   - Single notification with error-based retry instead of multiple parallel attempts
+
+4. **Tab Update Debouncing**:
+   - Tab update events are debounced with a 500ms window
+   - Global time-based filtering prevents too frequent processing
+   - YouTube-specific handling reduces processing on non-relevant sites
 
 ## Implementation Details
 
@@ -152,18 +225,18 @@ The extension provides real-time feedback through the browser extension icon:
    - Manages video element detection
    - Implements playback rate controls
    - Uses MutationObserver for dynamic content
+   - Includes delayed re-application of playback rate to handle YouTube's own rate resets
 
 2. **Background Process** (`background.ts`):
    - Manages content detection flow
    - Handles cache operations
    - Coordinates API calls
-   - Updates visual indicators
-   - Initializes and cleans up security components
+   - Updates visual indicators with throttling
+   - Tracks processing state to avoid redundant operations
 
 3. **API Integrations**:
    - YouTube Data API (`youtube.ts`):
      - Video category retrieval
-     - Live broadcast detection
      - Error handling with retries
      - Secure API key retrieval
    - Gemini API (`gemini.ts`):
@@ -181,12 +254,18 @@ The extension provides real-time feedback through the browser extension icon:
      - AES-GCM encryption/decryption
      - Binary data handling
      - Error recovery for crypto operations
+   - Extension State Management:
+     - Persistent state storage via Chrome Storage API
+     - Global toggle to completely disable functionality
+     - Cross-component state synchronization
 
 5. **User Interface** (`popup.tsx` & `options.tsx`):
    - Real-time playback control
    - Visual feedback
    - Settings access
    - Responsive speed adjustment
+   - Global extension toggle switch
+   - Disabled state UI indications
    - Secure API key configuration
 
 ## Error Recovery
@@ -197,13 +276,20 @@ The system implements multiple layers of error recovery:
    - Automatic retries with backoff
    - Fallback to alternative detection methods
    - Cache utilization when APIs are unavailable
+   - Extension toggle for complete bypass when needed
 
 2. **Content Script**:
    - Automatic reinitialization on navigation
    - Multiple attempts for video element detection
    - Message retry mechanism for speed updates
+   - Delayed re-application of playback rate settings
 
 3. **Cache Management**:
    - Graceful degradation on cache miss
    - Automatic cache cleanup
    - Cache validation before use
+
+4. **Icon and Badge Updates**:
+   - Throttled updates to prevent excessive resource usage
+   - State tracking to minimize redundant operations
+   - Direct badge manipulation for toggle operations

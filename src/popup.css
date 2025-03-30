@@ -80,11 +80,17 @@ html, body {
   }
 }
 
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: max(8px, 1.5vh);
+}
+
 h2 {
   margin: 0;
   font-size: clamp(16px, 4vw, 20px);
   font-weight: 600;
-  text-align: center;
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
@@ -382,6 +388,16 @@ h2 {
   font-weight: 500;
 }
 
+@media (prefers-color-scheme: light) {
+  .youtube-link {
+    background: linear-gradient(120deg, #1a73e8, #0d47a1);
+  }
+
+  .api-key-warning button {
+    background: linear-gradient(120deg, #1a73e8, #0d47a1);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .api-key-warning {
     background: rgba(255, 64, 129, 0.2);
@@ -412,4 +428,105 @@ h2 {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     color: #ccc;
   }
+}
+
+/* Toggle switch styles */
+.toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: #1a73e8;
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(16px);
+}
+
+.toggle-label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  input:checked + .toggle-slider {
+    background-color: #ff4081;
+  }
+  
+  .toggle-slider {
+  background-color: #444;
+}
+}
+
+/* Disabled slider styles */
+.disabled-slider-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 8px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.disabled-slider-overlay p {
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 0;
+  text-align: center;
+  padding: 0 8px;
+}
+
+.slider-container {
+  position: relative;
+}
+
+.speed-slider:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
