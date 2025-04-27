@@ -3,8 +3,8 @@ const path = require('path');
 const { execSync } = require('child_process');
 const packageJson = require('../package.json');
 
-// Read the package version
-const version = packageJson.version;
+// Read the package version from environment variable or package.json
+const version = process.env.PACKAGE_VERSION || packageJson.version;
 
 /**
  * Script to create Chrome extension file (.crx or .zip)

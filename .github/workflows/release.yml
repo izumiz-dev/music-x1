@@ -48,13 +48,15 @@ jobs:
       - name: Create release directories
         run: mkdir -p release
 
-      - name: Build and package extensions
-        run: pnpm package
-
-      # Extract version from tag
+      # Extract version from tag before building/packaging
       - name: Get version
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Build and package extensions
+        env:
+          PACKAGE_VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: pnpm package
 
       # Create GitHub Release
       - name: Create Release
