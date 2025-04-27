@@ -4,8 +4,19 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "node esbuild.config.js",
-    "dev": "node esbuild.config.js --watch"
+    "build": "node scripts/build/index.js",
+    "build:chrome": "node scripts/build/index.js --chrome",
+    "build:firefox": "node scripts/build/index.js --firefox",
+    "build:dev": "node scripts/build/index.js --dev",
+    "build:chrome:dev": "node scripts/build/index.js --chrome --dev",
+    "build:firefox:dev": "node scripts/build/index.js --firefox --dev",
+    "dev": "node scripts/build/index.js --watch",
+    "dev:chrome": "node scripts/build/index.js --chrome --watch",
+    "dev:firefox": "node scripts/build/index.js --firefox --watch",
+    "package": "node scripts/build/index.js --package",
+    "package:chrome": "node scripts/build/index.js --chrome --package",
+    "package:firefox": "node scripts/build/index.js --firefox --package",
+    "install:firefox-deps": "node scripts/install-firefox-deps.js"
   },
   "keywords": [],
   "author": "",
@@ -16,6 +27,7 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.304",
+    "@types/firefox-webext-browser": "^111.0.5",
     "@types/glob": "^8.1.0",
     "@types/node": "^22.13.1",
     "dotenv": "^16.4.7",

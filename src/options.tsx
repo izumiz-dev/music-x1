@@ -1,6 +1,8 @@
 import { h, render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { apiKeyManager, ApiKeyType } from './apiKeyManager';
+import { StorageManager } from './storage-manager';
+import { NavigationHelper } from './navigation-helper';
 
 const Options = () => {
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -20,7 +22,7 @@ const Options = () => {
         const youtubeKey = await apiKeyManager.getApiKey(ApiKeyType.YOUTUBE);
         
         // Get default playback rate
-        const result = await chrome.storage.sync.get(['defaultPlaybackRate']);
+        const playbackRate = await StorageManager.get<number>('defaultPlaybackRate');
         
         if (geminiKey) {
           setGeminiApiKey(geminiKey);
@@ -28,8 +30,8 @@ const Options = () => {
         if (youtubeKey) {
           setYoutubeApiKey(youtubeKey);
         }
-        if (result.defaultPlaybackRate) {
-          setDefaultPlaybackRate(result.defaultPlaybackRate);
+        if (playbackRate) {
+          setDefaultPlaybackRate(playbackRate);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -56,7 +58,7 @@ const Options = () => {
       await apiKeyManager.saveApiKey(ApiKeyType.YOUTUBE, youtubeApiKey.trim());
       
       // Save default playback rate
-      await chrome.storage.sync.set({ defaultPlaybackRate });
+      await StorageManager.set('defaultPlaybackRate', defaultPlaybackRate);
       
       setStatus('Settings saved');
       setTimeout(() => {
@@ -67,6 +69,21 @@ const Options = () => {
       setStatus('Failed to save settings');
     }
   };
+
+  // キーボードショートカットでの保存をサポート
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+      e.preventDefault();
+      saveOptions();
+    }
+  };
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [youtubeApiKey, geminiApiKey, defaultPlaybackRate]);
 
   if (loading) {
     return <div class="options-container"><p>Loading settings...</p></div>;

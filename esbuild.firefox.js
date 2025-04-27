@@ -22,8 +22,8 @@ function logWithDateTime(message) {
 // Get entry points
 const entryPoints = glob.sync('src/**/*.{ts,tsx}');
 
-// Set Chrome build directory
-const OUTPUT_DIR = 'dist/chrome';
+// Set Firefox build directory
+const OUTPUT_DIR = 'dist/firefox';
 
 // Determine dev mode from command line arguments
 const isDevMode = process.argv.includes('--dev');
@@ -34,12 +34,14 @@ const buildOptions = {
   bundle: true,
   format: 'esm',
   outdir: OUTPUT_DIR,
-  target: ['chrome58'],
+  // Target Firefox instead of Chrome
+  target: ['firefox102'],
   minify: !isDevMode,
   sourcemap: isDevMode,
   define: {
     'process.env.NODE_ENV': isDevMode ? '"development"' : '"production"',
-    'process.env.BROWSER': '"chrome"'
+    // Define a global variable to identify Firefox build
+    'process.env.BROWSER': '"firefox"'
   },
 };
 
@@ -57,7 +59,11 @@ function copyStaticFiles() {
       const relativePath = path.relative('src', file);
       fs.copyFileSync(file, path.join(OUTPUT_DIR, relativePath));
     });
-    fs.copyFileSync('manifest.json', path.join(OUTPUT_DIR, 'manifest.json'));
+    
+    // Generate Firefox-compatible manifest
+    const sourceManifestPath = path.join(__dirname, 'manifest.json');
+    const outputManifestPath = path.join(OUTPUT_DIR, 'manifest.json');
+    require('./scripts/firefox/generate-manifest').generateFirefoxManifest(sourceManifestPath, outputManifestPath);
 
     // Copy CSS files
     const cssFiles = glob.sync('src/**/*.css');
@@ -69,7 +75,7 @@ function copyStaticFiles() {
     // Generate PNG icons from SVG
     require('./scripts/generate-icons');
 
-    // Copy generated icons to Chrome build directory
+    // Copy generated icons to Firefox build directory
     const iconFiles = glob.sync('dist/icons/*.png');
     if (!fs.existsSync(path.join(OUTPUT_DIR, 'icons'))) {
       fs.mkdirSync(path.join(OUTPUT_DIR, 'icons'), { recursive: true });
@@ -102,11 +108,6 @@ async function build(watch = false) {
               } else {
                 logWithDateTime('Build completed successfully');
                 copyStaticFiles();
-                // require('child_process').exec('wslview "http://reload.extensions"', (error) => {
-                //   if (error) {
-                //     logWithDateTime(`Failed to open browser: ${error}`);
-                //   }
-                // });
               }
             });
           },
@@ -119,10 +120,10 @@ async function build(watch = false) {
     } else {
       await esbuild.build(buildOptions);
       copyStaticFiles();
-      logWithDateTime('Chrome build completed successfully!');
+      logWithDateTime('Firefox build completed successfully!');
     }
   } catch (error) {
-    logWithDateTime(`Build failed: ${error}`);
+    logWithDateTime(`Firefox build failed: ${error}`);
     process.exit(1);
   }
 }

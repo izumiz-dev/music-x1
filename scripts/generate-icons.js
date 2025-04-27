@@ -11,7 +11,7 @@ async function generateIcons() {
     const svgBuffer = await fs.readFile(svgPath);
     const disabledSvgBuffer = await fs.readFile(disabledSvgPath);
     
-    // dist/iconsディレクトリを作成
+    // dist/icons ディレクトリを作成
     const distIconsDir = path.join(__dirname, '../dist/icons');
     await fs.mkdir(distIconsDir, { recursive: true });
 

@@ -4,6 +4,7 @@
  */
 
 import { encryptText, decryptText } from './crypto';
+import { StorageManager } from './storage-manager';
 
 // Define key types
 export enum ApiKeyType {
@@ -33,7 +34,7 @@ class ApiKeyManager {
     try {
       // Remove if key is empty
       if (!key || key.trim() === '') {
-        await chrome.storage.sync.remove(String(type));
+        await StorageManager.remove(String(type));
         this.keyCache.delete(type);
         return true;
       }
@@ -42,15 +43,17 @@ class ApiKeyManager {
       const encryptedKey = await encryptText(key);
       
       // Save the encrypted key
-      await chrome.storage.sync.set({ [type]: encryptedKey });
+      const saveResult = await StorageManager.set(String(type), encryptedKey);
       
-      // Update in-memory cache
-      this.keyCache.set(type, {
-        value: key,
-        timestamp: Date.now()
-      });
+      if (saveResult) {
+        // Update in-memory cache
+        this.keyCache.set(type, {
+          value: key,
+          timestamp: Date.now()
+        });
+      }
       
-      return true;
+      return saveResult;
     } catch (error) {
       console.error(`Failed to save API key (${type}):`, error);
       return false;
@@ -71,11 +74,11 @@ class ApiKeyManager {
       }
       
       // Get from storage if not in cache
-      const result = await chrome.storage.sync.get(type);
-      const encryptedKey = result[type];
+      const encryptedKey = await StorageManager.get<any>(String(type));
       
       // If key does not exist
       if (!encryptedKey) {
+        console.log(`[apiKeyManager] No key found for ${type}`);
         return '';
       }
       

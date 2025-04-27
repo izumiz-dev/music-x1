@@ -1,8 +1,12 @@
 import { h } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { browserAPI } from "./browser-polyfill";
+import { StorageManager } from "./storage-manager";
+import { NavigationHelper } from "./navigation-helper";
+import { ApiKeyType, apiKeyManager } from "./apiKeyManager";
+import { PlaybackRateManager } from "./playback-rate-manager";
 
 import "./popup.css";
-
 
 const Popup = () => {
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
@@ -13,20 +17,29 @@ const Popup = () => {
   const [isExtensionEnabled, setIsExtensionEnabled] = useState(true);
 
   useEffect(() => {
-    // Check if API key is set
-    // Load saved playback rate, extension enabled state, and check API key
-    chrome.storage.sync.get(["defaultPlaybackRate", "geminiApiKey", "extensionEnabled"], (result) => {
-      if (result.defaultPlaybackRate) {
-        setPlaybackRate(result.defaultPlaybackRate);
+    // 設定の読み込み
+    async function loadSettings() {
+      try {
+        // PlaybackRateの読み込み
+        const defaultPlaybackRate = await PlaybackRateManager.getDefaultPlaybackRate();
+        setPlaybackRate(defaultPlaybackRate);
+        
+        // 拡張機能の有効/無効状態の読み込み
+        const extensionEnabled = await StorageManager.get<boolean>("extensionEnabled");
+        setIsExtensionEnabled(extensionEnabled !== false); // デフォルトはtrue
+        
+        // APIキーの確認
+        const hasGeminiKey = await apiKeyManager.hasApiKey(ApiKeyType.GEMINI);
+        setHasApiKey(hasGeminiKey);
+      } catch (error) {
+        console.error("[popup] Failed to load settings:", error);
       }
-      setHasApiKey(!!result.geminiApiKey);
-      setIsExtensionEnabled(result.extensionEnabled !== false); // Default to true if not set
-    });
+    }
 
     const checkIfMusicVideo = async () => {
       try {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        const currentTab = tabs[0];
+        const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
+        const currentTab = tabs[0] as chrome.tabs.Tab;
         console.log('Current URL:', currentTab?.url);
 
         if (currentTab?.url?.includes('youtube.com/watch')) {
@@ -34,11 +47,14 @@ const Popup = () => {
           console.log('Video ID:', videoId);
 
           if (videoId) {
-            const video = await chrome.storage.local.get(videoId);
-            const videoData = video[videoId];
+            const videoData = await StorageManager.get<{isMusic: boolean, detectionMethod: string}>(videoId);
             console.log('Video data:', videoData);
-            console.log('Is music video:', videoData?.isMusic);
-            setIsMusicVideo(videoData?.isMusic ?? false);
+            if (videoData) {
+              console.log('Is music video:', videoData.isMusic);
+              setIsMusicVideo(videoData.isMusic);
+            } else {
+              setIsMusicVideo(false);
+            }
           }
         }
       } catch (error) {
@@ -47,83 +63,37 @@ const Popup = () => {
     };
 
     const checkIsYouTube = async () => {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      const currentTab = tabs[0];
+      const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
+      const currentTab = tabs[0] as chrome.tabs.Tab;
       setIsYouTube(currentTab?.url?.includes('youtube.com') || false);
+      
+      if (tabs[0]) {
+        setCurrentTab(tabs[0] as chrome.tabs.Tab);
+      }
     }
 
+    loadSettings();
     checkIfMusicVideo();
     checkIsYouTube();
-
-
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error('tabs.query error:', chrome.runtime.lastError);
-      }
-      if (tabs[0]) {
-        setCurrentTab(tabs[0]);
-      }
-    });
   }, []);
 
   const toggleExtensionState = async () => {
     const newState = !isExtensionEnabled;
     setIsExtensionEnabled(newState);
-    await chrome.storage.sync.set({ extensionEnabled: newState });
+    await StorageManager.set("extensionEnabled", newState);
     
     // Notify background script about the state change
-    chrome.runtime.sendMessage({ type: 'EXTENSION_TOGGLE', enabled: newState });
+    browserAPI.runtime.sendMessage({ type: 'EXTENSION_TOGGLE', enabled: newState });
     
     // If disabling, reset playback speed to 1x
     if (!newState && currentTab?.id && typeof currentTab.id === 'number') {
-      await trySendPlaybackRateMessage(currentTab.id, 1.0, false, true);
+      await PlaybackRateManager.setCurrentTabPlaybackRate(1.0, false, true);
     }
     // If turning extension back on, refresh current tab's playback rate
     else if (newState && currentTab?.id && typeof currentTab.id === 'number' && currentTab?.url?.includes('youtube.com/watch')) {
       const videoId = new URL(currentTab.url).searchParams.get('v');
       if (videoId) {
-        chrome.runtime.sendMessage({ type: 'REFRESH_VIDEO_DETECTION', videoId, tabId: currentTab.id });
-      }
-    }
-  };
-
-  // Helper function to try sending playback rate message with retries
-  const trySendPlaybackRateMessage = async (tabId: number, rate: number, save: boolean = true, fromDisabledToggle: boolean = false) => {
-    const delays = [1000, 2000, 3000]; // Gradual delay times
-
-    for (let i = 0; i < delays.length; i++) {
-      try {
-        console.log(`[popup] Playback rate update attempt ${i + 1}/${delays.length}`);
-        await new Promise(resolve => setTimeout(resolve, delays[i]));
-
-        // Check initialization status
-        const ready = await chrome.tabs.sendMessage(tabId, {
-          type: 'CHECK_READY'
-        }).catch(() => false);
-
-        if (!ready) {
-          console.log('[popup] Content script not ready, retrying...');
-          continue;
-        }
-
-        const response = await chrome.tabs.sendMessage(tabId, {
-          type: 'SET_PLAYBACK_RATE',
-          rate,
-          save,
-          fromDisabledToggle
-        });
-
-        if (response?.success) {
-          console.log('[popup] Playback rate updated successfully');
-          return;
-        }
-
-        console.warn('[popup] Failed to set playback rate:', response?.error || 'Unknown error');
-      } catch (error) {
-        console.error(`[popup] Update attempt ${i + 1} failed:`, error);
-        if (i === delays.length - 1) {
-          console.error('[popup] All update attempts failed');
-        }
+        await PlaybackRateManager.refreshVideoDetection(currentTab.id, videoId);
       }
     }
   };
@@ -137,10 +107,14 @@ const Popup = () => {
     }
     
     if (save) {
-      await chrome.storage.sync.set({ defaultPlaybackRate: newRate });
-      // Send message to current tab to update playback rate
-      if (currentTab?.id && typeof currentTab.id === 'number') {
-        await trySendPlaybackRateMessage(currentTab.id, newRate, true);
+      try {
+        // PlaybackRateManagerを使用して再生速度を設定
+        const success = await PlaybackRateManager.setCurrentTabPlaybackRate(newRate, true);
+        if (!success) {
+          console.warn('[popup] Failed to set playback rate');
+        }
+      } catch (error) {
+        console.error('[popup] Error updating playback rate:', error);
       }
     }
   };
@@ -155,8 +129,14 @@ const Popup = () => {
     updatePlaybackRate(newRate, true);
   };
 
-  const openOptions = () => {
-    chrome.runtime.openOptionsPage();
+  const openOptions = async () => {
+    try {
+      await NavigationHelper.openOptionsPage();
+    } catch (error) {
+      console.error('[popup] Failed to open options page:', error);
+      // フォールバック: オプションページのURLを直接開く
+      NavigationHelper.openNewTab(browserAPI.runtime.getURL('options.html'));
+    }
   };
 
   return (

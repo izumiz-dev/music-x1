@@ -1,13 +1,18 @@
 import { fetchMusicOrNot } from './gemini';
 import { isMusicCategory, getVideoDetails } from './youtube';
 import { apiKeyManager } from './apiKeyManager';
+import { browserAPI } from './browser-polyfill';
+import { StorageManager } from './storage-manager';
+import { PlaybackRateManager } from './playback-rate-manager';
 
 // Clear cache when extension starts (for security)
 apiKeyManager.clearCache();
 
 // Clear cache when extension is disabled or terminated
-chrome.runtime.onSuspend.addListener(() => {
-  apiKeyManager.clearCache();
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'EXTENSION_SUSPENDED') {
+    apiKeyManager.clearCache();
+  }
 });
 
 interface CacheData {
@@ -49,7 +54,7 @@ const updateIcon = (enabled: boolean) => {
       };
   
   // Update icon
-  chrome.action.setIcon({ path: iconPath });
+  browserAPI.action.setIcon({ path: iconPath });
   
   // Update state
   currentIconState = {
@@ -61,7 +66,7 @@ const updateIcon = (enabled: boolean) => {
 // Update badge and icon display according to extension state and detection method
 const updateBadge = async (isMusic: boolean, detectionMethod: 'youtube' | 'gemini' | null, visible: boolean = true) => {
   // First check if extension is enabled
-  const { extensionEnabled } = await chrome.storage.sync.get(['extensionEnabled']);
+  const extensionEnabled = await StorageManager.get<boolean>('extensionEnabled');
   const enabled = extensionEnabled !== false; // Default to true if not set
   
   // Set badge
@@ -72,9 +77,8 @@ const updateBadge = async (isMusic: boolean, detectionMethod: 'youtube' | 'gemin
     : '';
 
   // Update badge
-  chrome.action.setBadgeText({ text });
-  chrome.action.setBadgeBackgroundColor({ color });
-  chrome.action.setTitle({ title });
+  browserAPI.action.setBadgeText({ text });
+  browserAPI.action.setBadgeBackgroundColor({ color });
   
   // Call icon update function
   updateIcon(enabled);
@@ -116,10 +120,9 @@ const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
         const videoId = url.searchParams.get('v');
         if (videoId) {
           // Get state from cache
-          const cached = await chrome.storage.local.get(videoId);
-          if (cached[videoId]) {
-            const { isMusic, detectionMethod } = cached[videoId];
-            updateBadge(isMusic, detectionMethod, true);
+          const videoData = await StorageManager.get<CacheData>(videoId);
+          if (videoData) {
+            updateBadge(videoData.isMusic, videoData.detectionMethod, true);
           }
         }
       } catch (error) {
@@ -140,18 +143,10 @@ const updateBadgeForTab = async (tab: chrome.tabs.Tab) => {
 };
 
 // Monitor tab activation
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
-  const tab = await chrome.tabs.get(activeInfo.tabId);
-  updateBadgeForTab(tab);
-});
-
-// Handle window focus change
-chrome.windows.onFocusChanged.addListener(async (windowId) => {
-  if (windowId !== chrome.windows.WINDOW_ID_NONE) {
-    const [tab] = await chrome.tabs.query({ active: true, windowId });
-    if (tab) {
-      updateBadgeForTab(tab);
-    }
+browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  const activeTab = await browserAPI.tabs.query({ active: true, currentWindow: true });
+  if (activeTab[0] && activeTab[0].id === tabId) {
+    updateBadgeForTab(tab);
   }
 });
 
@@ -159,7 +154,7 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
 let pendingTabUpdates = new Map();
 let lastTabUpdateTime = 0;
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+browserAPI.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   // Skip processing if still loading or URL is null
   if (changeInfo.status !== 'complete' || !tab.url) {
     return;
@@ -221,7 +216,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 // Check if extension is enabled
 async function isExtensionEnabled(): Promise<boolean> {
-  const { extensionEnabled } = await chrome.storage.sync.get(['extensionEnabled']);
+  const extensionEnabled = await StorageManager.get<boolean>('extensionEnabled');
   // Default to true if not set
   return extensionEnabled !== false;
 }
@@ -240,8 +235,7 @@ async function getVideoRate(
       return 1.0; // Default to 1x when disabled
     }
     
-    const cachedResult = await chrome.storage.local.get(videoId);
-    const storedData: CacheData | undefined = cachedResult[videoId];
+    const storedData = await StorageManager.get<CacheData>(videoId);
     const now = Date.now();
 
     let isMusic: boolean;
@@ -264,25 +258,22 @@ async function getVideoRate(
       }
 
       // Update cache
-      await chrome.storage.local.set({
-        [videoId]: {
-          isMusic,
-          timestamp: now,
-          detectionMethod
-        }
+      await StorageManager.set(videoId, {
+        isMusic,
+        timestamp: now,
+        detectionMethod
       });
     }
 
     // Save badge state
-    await chrome.storage.local.set({ 
-      lastBadgeState: { 
-        isMusic,
-        detectionMethod 
-      }
+    await StorageManager.set('lastBadgeState', { 
+      isMusic,
+      detectionMethod 
     });
+    
     updateBadge(isMusic, detectionMethod, true);
 
-    const { defaultPlaybackRate = 2.0 } = await chrome.storage.sync.get(['defaultPlaybackRate']);
+    const defaultPlaybackRate = await PlaybackRateManager.getDefaultPlaybackRate();
     const rate = isMusic ? 1.0 : defaultPlaybackRate;
     console.log(`[background] Setting playback rate: ${rate} (isMusic: ${isMusic}, detected via ${detectionMethod})`);
     return rate;
@@ -291,60 +282,6 @@ async function getVideoRate(
     console.error('Error in getVideoRate:', error);
     return 1.0; // Default playback speed on error
   }
-}
-
-// Function to wait for content script initialization
-async function waitForContentScript(tabId: number, maxAttempts = 20): Promise<boolean> {
-  console.log('[background] Waiting for content script initialization');
-  
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      console.log(`[background] Initialization check attempt ${i + 1}/${maxAttempts}`);
-      const ready = await chrome.tabs.sendMessage(tabId, { type: 'CHECK_READY' })
-        .catch(() => false);
-      
-      if (ready) {
-        console.log('[background] Content script is ready');
-        return true;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-    } catch (error) {
-      console.log(`[background] Check attempt ${i + 1} failed:`, error);
-    }
-  }
-  
-  console.log('[background] Content script initialization timeout');
-  return false;
-}
-
-// Function to retry message sending
-async function trySendMessage(tabId: number, message: any, maxRetries = 3): Promise<any> {
-  console.log('[background] Attempting to send message');
-  
-  // Wait for content script initialization first
-  const isReady = await waitForContentScript(tabId);
-  if (!isReady) {
-    throw new Error('Content script failed to initialize');
-  }
-
-  // Retry message sending
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      console.log(`[background] Message send attempt ${i + 1}/${maxRetries}`);
-      const response = await chrome.tabs.sendMessage(tabId, message);
-      console.log('[background] Message send successful:', response);
-      return response;
-    } catch (error) {
-      console.log(`[background] Send attempt ${i + 1} failed:`, error);
-      if (i === maxRetries - 1) {
-        throw error;
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    }
-  }
-
-  throw new Error('Failed to send message after all retries');
 }
 
 // Object to track videos being processed
@@ -374,8 +311,7 @@ async function handleYouTubePage(tabId: number, videoId: string) {
     console.log('[background] Starting YouTube processing');
 
     // Check cache first
-    const cachedResult = await chrome.storage.local.get(videoId);
-    const storedData: CacheData | undefined = cachedResult[videoId];
+    const storedData = await StorageManager.get<CacheData>(videoId);
     const now = Date.now();
 
     let rate: number;
@@ -383,7 +319,7 @@ async function handleYouTubePage(tabId: number, videoId: string) {
     if (storedData && (now - storedData.timestamp) < CACHE_EXPIRY) {
       console.log('[background] Using cached music detection result');
       const isMusic = storedData.isMusic;
-      const { defaultPlaybackRate = 2.0 } = await chrome.storage.sync.get(['defaultPlaybackRate']);
+      const defaultPlaybackRate = await PlaybackRateManager.getDefaultPlaybackRate();
       rate = isMusic ? 1.0 : defaultPlaybackRate;
       updateBadge(isMusic, storedData.detectionMethod, true);
     } else {
@@ -401,45 +337,12 @@ async function handleYouTubePage(tabId: number, videoId: string) {
       rate = await getVideoRate(videoId, pureTitle, details.categoryId);
     }
 
-    console.log('[background] Sending playback rate setting message:', rate);
-    
-    // Use multiple attempts to set the playback rate
-    const maxAttempts = 3; // Reduce number of attempts
-    let success = false;
-    
-    for (let i = 0; i < maxAttempts && !success; i++) {
-      try {
-        console.log(`[background] Setting playback rate attempt ${i+1}/${maxAttempts}`);
-        
-        // Add a delay that increases with each attempt
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * i));
-        }
-        
-        // First check if content script is ready
-        const isReady = await waitForContentScript(tabId);
-        if (!isReady) {
-          console.log('[background] Content script not ready, retrying...');
-          continue;
-        }
-        
-        const response = await trySendMessage(tabId, { 
-          type: 'SET_PLAYBACK_RATE',
-          rate 
-        });
-        
-        if (response?.success) {
-          console.log('[background] Successfully set playback rate');
-          success = true;
-          break;
-        }
-      } catch (error) {
-        console.error(`[background] Attempt ${i+1} failed:`, error);
-      }
-    }
+    console.log('[background] Setting playback rate with PlaybackRateManager:', rate);
+    // PlaybackRateManagerを使用して再生速度を設定
+    const success = await PlaybackRateManager.setCurrentTabPlaybackRate(rate, false);
     
     if (!success) {
-      console.log('[background] All attempts to set playback rate failed');
+      console.error('[background] Failed to set playback rate using PlaybackRateManager');
     }
 
   } catch (error) {
@@ -449,12 +352,14 @@ async function handleYouTubePage(tabId: number, videoId: string) {
     processingVideos.delete(processingKey);
   }
 }
+
 // Track last processed navigation URL
 let lastProcessedUrl = '';
 let lastNavigationTime = 0;
 
 // Handle messages from popup and content script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+// コールバック関数をasyncに変更して、await操作をサポート
+browserAPI.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   
   // Handle page navigation notification from content script
   if (message.type === 'PAGE_NAVIGATION' && message.url && sender.tab && sender.tab.id) {
@@ -501,42 +406,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // Clear badge text
     if (!enabled) {
-      chrome.action.setBadgeText({ text: '' });
+      browserAPI.action.setBadgeText({ text: '' });
       
       // For all YouTube tabs, reset playback to 1x
-      chrome.tabs.query({url: '*://*.youtube.com/watch*'}, async (tabs) => {
-        for (const tab of tabs) {
-          if (tab && typeof tab.id === 'number') {
-            try {
-              await trySendMessage(tab.id, {
-                type: 'SET_PLAYBACK_RATE',
-                rate: 1.0,
-                save: false, // Don't save this as the default
-                fromDisabledToggle: true // Special flag for disabled toggle
-              });
-            } catch (error) {
-              console.error('[background] Failed to reset playback rate:', error);
-            }
+      const youtubeTabs = await browserAPI.tabs.query({url: '*://*.youtube.com/watch*'});
+      for (const tab of youtubeTabs) {
+        if (tab && typeof tab.id === 'number') {
+          try {
+            await PlaybackRateManager.setCurrentTabPlaybackRate(1.0, false, true);
+          } catch (error) {
+            console.error('[background] Failed to reset playback rate:', error);
           }
         }
-      });
+      }
     } else {
-      // Restore badge state when enabled
-      chrome.storage.local.get('lastBadgeState', (result) => {
-        if (result.lastBadgeState) {
-          // Set badge settings directly without calling updateBadge
-          const isMusic = result.lastBadgeState.isMusic;
-          const detectionMethod = result.lastBadgeState.detectionMethod;
-          
-          const text = isMusic ? '♪' : '🎞️';
-          const color = isMusic ? '#4CAF50' : '#808080';
-          const title = `Music: ${isMusic ? 'Yes' : 'No'} (via ${detectionMethod || 'unknown'})`;
-          
-          chrome.action.setBadgeText({ text });
-          chrome.action.setBadgeBackgroundColor({ color });
-          chrome.action.setTitle({ title });
-        }
-      });
+      // Restore badge state when enabled - asyncで囲まれているので、awaitが使用可能
+      const lastBadgeState = await StorageManager.get<{isMusic: boolean; detectionMethod: string}>('lastBadgeState');
+      if (lastBadgeState) {
+        // Set badge settings directly without calling updateBadge
+        const isMusic = lastBadgeState.isMusic;
+        const detectionMethod = lastBadgeState.detectionMethod as 'youtube' | 'gemini';
+        
+        const text = isMusic ? '♪' : '🎞️';
+        const color = isMusic ? '#4CAF50' : '#808080';
+        
+        browserAPI.action.setBadgeText({ text });
+        browserAPI.action.setBadgeBackgroundColor({ color });
+      }
     }
     
     sendResponse({ success: true });
@@ -551,33 +447,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.type === 'UPDATE_DEFAULT_RATE') {
-    // Check if extension is enabled before processing rate change
-    isExtensionEnabled().then(enabled => {
+    try {
+      // Check if extension is enabled before processing rate change
+      const enabled = await isExtensionEnabled();
       if (!enabled) {
         console.log('[background] Extension is disabled, ignoring playback rate change');
         sendResponse({ success: false, error: 'Extension is disabled' });
-        return;
+        return true;
       }
       
-      chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
-        if (tabs[0] && typeof tabs[0].id === 'number') {
-          try {
-            await trySendMessage(tabs[0].id, {
-              type: 'SET_PLAYBACK_RATE',
-              rate: message.rate
-            });
-            sendResponse({ success: true });
-          } catch (error) {
-            console.error('Error updating playback rate:', error);
-            sendResponse({ success: false, error: String(error) });
-          }
-        }
-      });
-    }).catch(error => {
-      console.error('Error checking extension enabled state:', error);
+      const success = await PlaybackRateManager.setCurrentTabPlaybackRate(message.rate, true);
+      sendResponse({ success });
+    } catch (error) {
+      console.error('Error updating playback rate:', error);
       sendResponse({ success: false, error: String(error) });
-    });
+    }
     
     return true; // Return true to indicate we'll respond asynchronously
   }
+  
+  // falseを返すと他のリスナーに処理を続けることを示す
+  return false;
 });

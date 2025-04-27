@@ -1,30 +1,27 @@
-name: Release
+name: Build and Release
 
 on:
   push:
     tags:
       - 'v*'
 
-# GitHub Releaseを作成するための権限を追加
-permissions:
-  contents: write
-
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '18.x'
+          node-version: 16
+          cache: 'npm'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 9.x
+          version: 8
           run_install: false
 
       - name: Get pnpm store directory
@@ -33,8 +30,8 @@ jobs:
         run: |
           echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - name: Setup pnpm cache
-        uses: actions/cache@v3
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -44,20 +41,50 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build
-        run: pnpm run build
+      - name: Install Firefox dependencies
+        run: pnpm install:firefox-deps
 
-      - name: Zip build artifacts
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          zip -r music-x1-${VERSION}.zip ./dist
+      - name: Create release directories
+        run: mkdir -p release
 
+      - name: Build and package extensions
+        run: pnpm package
+
+      # Extract version from tag
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      # Create GitHub Release
       - name: Create Release
         id: create_release
-        uses: softprops/action-gh-release@v1
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: Release ${{ github.ref_name }}
-          files: |
-            music-x1-${{ github.ref_name }}.zip
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
+
+      # Upload Chrome addon file
+      - name: Upload Chrome Addon
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/chrome-ext/music-x1-chrome-v${{ steps.get_version.outputs.VERSION }}.zip
+          asset_name: music-x1-chrome-v${{ steps.get_version.outputs.VERSION }}.zip
+          asset_content_type: application/zip
+
+      # Upload Firefox addon file
+      - name: Upload Firefox Addon
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist/firefox-addon/music-x1-firefox-v${{ steps.get_version.outputs.VERSION }}.xpi
+          asset_name: music-x1-firefox-v${{ steps.get_version.outputs.VERSION }}.xpi
+          asset_content_type: application/x-xpinstall

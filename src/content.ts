@@ -1,9 +1,11 @@
 // YouTube page content script
+import { browserAPI } from './browser-polyfill';
+import { StorageManager } from './storage-manager';
 
 let isInitialized = false;
 
 // Handle initialization after YouTube SPA navigation
-const handleNavigation = () => {
+const handleNavigation = async () => {
   console.log('[content] Handling navigation');
   isInitialized = false;
   
@@ -11,26 +13,25 @@ const handleNavigation = () => {
   initializeContentScript();
   
   // A single notification is sufficient, so reduce the number of notifications
-  setTimeout(() => {
+  setTimeout(async () => {
     console.log('[content] Notifying background script about navigation');
     try {
-      chrome.runtime.sendMessage({ 
+      const response = await browserAPI.runtime.sendMessage({ 
         type: 'PAGE_NAVIGATION',
         url: window.location.href
-      }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('[content] Error sending navigation message:', chrome.runtime.lastError);
-          // Only try again in case of error
-          setTimeout(() => {
-            chrome.runtime.sendMessage({ 
-              type: 'PAGE_NAVIGATION',
-              url: window.location.href
-            });
-          }, 1000);
-        } else if (response?.success) {
-          console.log('[content] Background script acknowledged navigation');
-        }
       });
+      
+      if (response?.success) {
+        console.log('[content] Background script acknowledged navigation');
+      } else {
+        // Only try again in case of error
+        setTimeout(async () => {
+          await browserAPI.runtime.sendMessage({ 
+            type: 'PAGE_NAVIGATION',
+            url: window.location.href
+          });
+        }, 1000);
+      }
     } catch (e) {
       console.error('[content] Failed to notify background about navigation:', e);
     }
@@ -52,7 +53,7 @@ const findAndInitializeVideo = () => {
     console.log('[content] Video element found');
     if (!isInitialized) {
       isInitialized = true;
-      chrome.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' });
+      browserAPI.runtime.sendMessage({ type: 'CONTENT_SCRIPT_READY' });
       console.log('[content] Initialization complete');
     }
     return true;
@@ -119,8 +120,59 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeContentScript();
 });
 
+// 再生速度変更のヘルパー関数
+// Firefox と Chrome の両方で動作するように最適化
+const setVideoPlaybackRate = (rate: number, retry = 0, maxRetries = 3) => {
+  const videoElement = document.querySelector('video.html5-main-video');
+  if (videoElement instanceof HTMLVideoElement) {
+    try {
+      console.log(`[content] Current playback rate: ${videoElement.playbackRate}, setting to: ${rate}`);
+      videoElement.playbackRate = rate;
+      
+      // YouTubeはしばしば再生速度をリセットするので、一定時間後に再確認する
+      setTimeout(() => {
+        try {
+          const currentVideo = document.querySelector('video.html5-main-video');
+          if (currentVideo instanceof HTMLVideoElement && currentVideo.playbackRate !== rate) {
+            console.log('[content] Playback rate was reset, re-applying:', rate);
+            currentVideo.playbackRate = rate;
+          }
+        } catch (e) {
+          console.error('[content] Error in delayed rate setting:', e);
+        }
+      }, 500);
+      
+      return true;
+    } catch (error) {
+      console.error('[content] Error setting playback rate:', error);
+      
+      // リトライロジック
+      if (retry < maxRetries) {
+        console.log(`[content] Retrying set playback rate (${retry + 1}/${maxRetries})`);
+        setTimeout(() => {
+          setVideoPlaybackRate(rate, retry + 1, maxRetries);
+        }, 300);
+      }
+      
+      return false;
+    }
+  } else {
+    console.log('[content] Video element not found for playback rate setting');
+    
+    // ビデオ要素が見つからない場合もリトライ
+    if (retry < maxRetries) {
+      console.log(`[content] Waiting for video element (${retry + 1}/${maxRetries})`);
+      setTimeout(() => {
+        setVideoPlaybackRate(rate, retry + 1, maxRetries);
+      }, 500);
+    }
+    
+    return false;
+  }
+};
+
 // Setup message listener
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Check initialization status
   if (message.type === 'CHECK_READY') {
     sendResponse(isInitialized);
@@ -147,36 +199,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const isDisabledReset = message.save === false && message.rate === 1.0 && message.fromDisabledToggle;
         
         // Get extension enabled state
-        chrome.storage.sync.get(['extensionEnabled'], async (result) => {
-          const isEnabled = result.extensionEnabled !== false; // Default to true if not set
+        StorageManager.get<boolean>('extensionEnabled').then(extensionEnabled => {
+          const isEnabled = extensionEnabled !== false; // Default to true if not set
           
           // Only proceed if extension is enabled OR this is a reset from disabling
           if (isEnabled || isDisabledReset) {
-            const videoElement = document.querySelector('video.html5-main-video');
-            if (videoElement instanceof HTMLVideoElement) {
-              console.log('[content] Current playback rate:', videoElement.playbackRate);
-              videoElement.playbackRate = message.rate;
-              
-              // YouTube sometimes resets the rate, so set again after a short delay
-              setTimeout(() => {
-                try {
-                  if (videoElement instanceof HTMLVideoElement && videoElement.playbackRate !== message.rate) {
-                    videoElement.playbackRate = message.rate;
-                    console.log('[content] Re-applied playback rate:', message.rate);
-                  }
-                } catch (e) {
-                  console.error('[content] Error in delayed rate setting:', e);
-                }
-              }, 500);
-              
-              console.log('[content] Set new playback rate:', message.rate);
+            const success = setVideoPlaybackRate(message.rate);
+            
+            if (success) {
+              console.log('[content] Set playback rate successfully');
               sendResponse({ success: true });
             } else {
-              console.log('[content] Video element not found');
-              sendResponse({ 
-                success: false, 
-                error: 'Video player not found' 
-              });
+              console.log('[content] Failed to set playback rate immediately, but retrying');
+              // リトライするため、成功として応答（非同期で再設定を試みるため）
+              sendResponse({ success: true, retrying: true });
             }
           } else {
             console.log('[content] Extension is disabled, ignoring playback rate change');
@@ -185,6 +221,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               error: 'Extension is disabled'
             });
           }
+        }).catch(error => {
+          console.error('[content] Error checking extension state:', error);
+          sendResponse({ 
+            success: false, 
+            error: 'Failed to check extension state' 
+          });
         });
         
         return true; // Required for async response
