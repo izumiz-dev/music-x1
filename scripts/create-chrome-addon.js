@@ -15,7 +15,7 @@ async function createChromeExtension() {
 
     // Check Chrome build directory
     const chromeDistDir = path.join(__dirname, '../dist/chrome');
-    
+
     // Check if already built
     if (!fs.existsSync(chromeDistDir) || !fs.existsSync(path.join(chromeDistDir, 'manifest.json'))) {
       console.log('Running Chrome build...');
@@ -33,28 +33,35 @@ async function createChromeExtension() {
     // Set the ZIP file name
     const zipFileName = `music-x1-chrome-v${version}.zip`;
     const zipFilePath = path.join(outputDir, zipFileName);
-    
-    // Create ZIP archive (since we don't have a private key, we'll use a ZIP that can be loaded as an unpacked extension)
+
+    // Create ZIP archive based on OS
     console.log(`Creating Chrome extension ZIP file: ${zipFilePath}`);
-    execSync(`cd "${chromeDistDir}" && powershell Compress-Archive -Path * -DestinationPath "${zipFilePath}" -Force`);
-    
+    if (process.platform === 'win32') {
+      // Use PowerShell on Windows
+      execSync(`cd "${chromeDistDir}" && powershell Compress-Archive -Path * -DestinationPath "${zipFilePath}" -Force`);
+    } else {
+      // Use zip on Linux/macOS
+      // Ensure zip is installed in the environment (GitHub Actions runners usually have it)
+      execSync(`cd "${chromeDistDir}" && zip -r "${zipFilePath}" *`);
+    }
+
     // Check if we have a private key for .crx creation
     const privateKeyPath = path.join(__dirname, '../chrome-ext.pem');
     if (fs.existsSync(privateKeyPath)) {
       try {
         // If crx package is installed, use it to create a .crx file
         console.log('Private key found. Attempting to create .crx file...');
-        
+
         // You would need to have the 'crx' package installed
         // This is a placeholder for the actual implementation
         const crxFileName = `music-x1-chrome-v${version}.crx`;
         const crxFilePath = path.join(outputDir, crxFileName);
-        
+
         console.log('To create .crx files, please install the crx package:');
         console.log('  npm install -g crx');
         console.log('Then use:');
         console.log(`  crx pack ${chromeDistDir} -o ${crxFilePath} -p ${privateKeyPath}`);
-        
+
         console.log('\nAlternatively, you can use Chrome to pack the extension:');
         console.log('1. Open Chrome and go to chrome://extensions/');
         console.log('2. Enable Developer mode');
@@ -74,7 +81,7 @@ async function createChromeExtension() {
       console.log('2. Place the key file in the project root directory');
       console.log('3. Run this script again');
     }
-    
+
     console.log('\nCompleted!');
     console.log(`Chrome extension file created: ${zipFilePath}`);
     console.log('\nInstallation Instructions:');
