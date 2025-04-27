@@ -39,12 +39,12 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
         type: 'YOUTUBE_API_ERROR',
         code: 401,
         message: 'YouTube API key not configured',
-        retryable: false
+        retryable: false,
       };
     }
 
     const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`,
     );
 
     if (response.status === 403) {
@@ -52,7 +52,7 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
         type: 'YOUTUBE_API_ERROR',
         code: 403,
         message: 'YouTube API quota exceeded',
-        retryable: true
+        retryable: true,
       };
     }
 
@@ -61,7 +61,7 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
         type: 'YOUTUBE_API_ERROR',
         code: response.status,
         message: 'YouTube API request failed',
-        retryable: true
+        retryable: true,
       };
     }
 
@@ -71,7 +71,7 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
         type: 'YOUTUBE_API_ERROR',
         code: 404,
         message: 'Video category not found',
-        retryable: false
+        retryable: false,
       };
     }
 
@@ -81,14 +81,14 @@ export const getVideoCategory = async (videoId: string): Promise<number | YouTub
       type: 'YOUTUBE_API_ERROR',
       code: 0,
       message: error instanceof Error ? error.message : 'Unknown error',
-      retryable: true
+      retryable: true,
     };
   }
 };
 
 export const isMusicCategory = (categoryId: number, liveBroadcastContent?: string): boolean => {
   // Consider live broadcasts as music
-  if (liveBroadcastContent === "live") {
+  if (liveBroadcastContent === 'live') {
     return true;
   }
   // YouTube category ID 10 is "Music"
@@ -103,18 +103,18 @@ export const getVideoDetails = async (videoId: string): Promise<{ title: string;
         type: 'YOUTUBE_API_ERROR',
         code: 401,
         message: 'YouTube API key not configured',
-        retryable: false
+        retryable: false,
       };
     }
     const response = await fetch(
-      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${apiKey}`,
     );
     if (response.status === 403) {
       return {
         type: 'YOUTUBE_API_ERROR',
         code: 403,
         message: 'YouTube API quota exceeded',
-        retryable: true
+        retryable: true,
       };
     }
     if (!response.ok) {
@@ -122,7 +122,7 @@ export const getVideoDetails = async (videoId: string): Promise<{ title: string;
         type: 'YOUTUBE_API_ERROR',
         code: response.status,
         message: 'YouTube API request failed',
-        retryable: true
+        retryable: true,
       };
     }
     const data: YouTubeVideoResponse = await response.json();
@@ -132,20 +132,20 @@ export const getVideoDetails = async (videoId: string): Promise<{ title: string;
         type: 'YOUTUBE_API_ERROR',
         code: 404,
         message: 'Video details not found',
-        retryable: false
+        retryable: false,
       };
     }
     return {
       title: data.items[0].snippet.title,
       categoryId: parseInt(data.items[0].snippet.categoryId, 10),
-      liveBroadcastContent: data.items[0].snippet.liveBroadcastContent
+      liveBroadcastContent: data.items[0].snippet.liveBroadcastContent,
     };
   } catch (error) {
     return {
       type: 'YOUTUBE_API_ERROR',
       code: 0,
       message: error instanceof Error ? error.message : 'Unknown error',
-      retryable: true
+      retryable: true,
     };
   }
 };

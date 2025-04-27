@@ -17,10 +17,10 @@ export async function encryptText(text: string): Promise<string> {
   const key = await crypto.subtle.generateKey(
     {
       name: 'AES-GCM',
-      length: 256
+      length: 256,
     },
     true,
-    ['encrypt', 'decrypt']
+    ['encrypt', 'decrypt'],
   );
   
   // Generate initialization vector (IV)
@@ -30,10 +30,10 @@ export async function encryptText(text: string): Promise<string> {
   const encryptedData = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv
+      iv,
     },
     key,
-    data
+    data,
   );
   
   // Export the key
@@ -43,7 +43,7 @@ export async function encryptText(text: string): Promise<string> {
   const result = {
     data: Array.from(new Uint8Array(encryptedData)),
     iv: Array.from(iv),
-    key: Array.from(new Uint8Array(exportedKey))
+    key: Array.from(new Uint8Array(exportedKey)),
   };
   
   return JSON.stringify(result);
@@ -69,20 +69,20 @@ export async function decryptText(encryptedText: string): Promise<string> {
       keyData,
       {
         name: 'AES-GCM',
-        length: 256
+        length: 256,
       },
       false,
-      ['decrypt']
+      ['decrypt'],
     );
     
     // Execute decryption
     const decryptedData = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-        iv: ivData
+        iv: ivData,
       },
       importedKey,
-      encryptedData
+      encryptedData,
     );
     
     // Convert decrypted data to text

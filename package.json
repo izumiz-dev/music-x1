@@ -16,7 +16,10 @@
     "package": "node scripts/build/index.js --package",
     "package:chrome": "node scripts/build/index.js --chrome --package",
     "package:firefox": "node scripts/build/index.js --firefox --package",
-    "install:firefox-deps": "node scripts/install-firefox-deps.js"
+    "install:firefox-deps": "node scripts/install-firefox-deps.js",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -26,13 +29,20 @@
     "typescript": "^5.7.3"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@eslint/js": "^9.25.1",
     "@types/chrome": "^0.0.304",
     "@types/firefox-webext-browser": "^111.0.5",
     "@types/glob": "^8.1.0",
     "@types/node": "^22.13.1",
+    "@typescript-eslint/eslint-plugin": "^8.31.0",
+    "@typescript-eslint/parser": "^8.31.0",
     "dotenv": "^16.4.7",
     "esbuild": "^0.25.0",
+    "eslint": "^9.25.1",
+    "eslint-plugin-react": "^7.37.5",
     "glob": "^11.0.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "typescript-eslint": "^8.31.0"
   }
 }

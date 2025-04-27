@@ -2,7 +2,6 @@ import { h, render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { apiKeyManager, ApiKeyType } from './apiKeyManager';
 import { StorageManager } from './storage-manager';
-import { NavigationHelper } from './navigation-helper';
 
 const Options = () => {
   const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -16,14 +15,14 @@ const Options = () => {
     const loadSettings = async () => {
       try {
         setLoading(true);
-        
+
         // Securely retrieve encrypted API keys
         const geminiKey = await apiKeyManager.getApiKey(ApiKeyType.GEMINI);
         const youtubeKey = await apiKeyManager.getApiKey(ApiKeyType.YOUTUBE);
-        
+
         // Get default playback rate
         const playbackRate = await StorageManager.get<number>('defaultPlaybackRate');
-        
+
         if (geminiKey) {
           setGeminiApiKey(geminiKey);
         }
@@ -52,14 +51,14 @@ const Options = () => {
 
     try {
       setStatus('Saving...');
-      
+
       // Encrypt and save API keys
       await apiKeyManager.saveApiKey(ApiKeyType.GEMINI, geminiApiKey.trim());
       await apiKeyManager.saveApiKey(ApiKeyType.YOUTUBE, youtubeApiKey.trim());
-      
+
       // Save default playback rate
       await StorageManager.set('defaultPlaybackRate', defaultPlaybackRate);
-      
+
       setStatus('Settings saved');
       setTimeout(() => {
         setStatus('');

@@ -36,8 +36,8 @@ export const askGemini = async (prompt: string): Promise<GeminiResponse | null> 
         body: JSON.stringify({
           contents: [{
             parts: [{
-              text: prompt
-            }]
+              text: prompt,
+            }],
           }],
           generationConfig: {
             response_mime_type: 'application/json',
@@ -45,13 +45,13 @@ export const askGemini = async (prompt: string): Promise<GeminiResponse | null> 
               type: 'OBJECT',
               properties: {
                 music: {
-                  type: 'BOOLEAN'
-                }
+                  type: 'BOOLEAN',
+                },
               },
-              required: ['music']
-            }
-          }
-        })
+              required: ['music'],
+            },
+          },
+        }),
       });
 
     if (!response.ok) {

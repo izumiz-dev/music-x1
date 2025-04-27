@@ -11,7 +11,7 @@ export class PlaybackRateManager {
   private static readonly DEFAULT_RATE = 1.5;
   // 再試行回数の上限
   private static readonly MAX_RETRIES = 3;
-  
+
   /**
    * 現在のタブIDを取得
    */
@@ -27,25 +27,25 @@ export class PlaybackRateManager {
       return null;
     }
   }
-  
+
   /**
    * メッセージを送信する試行（リトライロジック付き）
    */
-  private static async trySendMessage(tabId: number, message: any, retries = 0): Promise<any> {
+  private static async trySendMessage(tabId: number, message: Record<string, unknown>, retries = 0): Promise<Record<string, unknown>> {
     try {
       // コンテンツスクリプトの初期化チェック
       const ready = await browserAPI.tabs.sendMessage(tabId, { type: 'CHECK_READY' }).catch(() => false);
-      
+
       if (!ready && retries < this.MAX_RETRIES) {
         console.log(`[PlaybackRateManager] Content script not ready, retrying (${retries + 1}/${this.MAX_RETRIES})`);
         await new Promise(resolve => setTimeout(resolve, 500 * (retries + 1)));
         return this.trySendMessage(tabId, message, retries + 1);
       }
-      
+
       if (!ready) {
         throw new Error('Content script not initialized after max retries');
       }
-      
+
       // メッセージを送信
       return await browserAPI.tabs.sendMessage(tabId, message);
     } catch (error) {
@@ -54,11 +54,11 @@ export class PlaybackRateManager {
         await new Promise(resolve => setTimeout(resolve, 1000 * (retries + 1)));
         return this.trySendMessage(tabId, message, retries + 1);
       }
-      
+
       throw error;
     }
   }
-  
+
   /**
    * 保存された再生速度を取得
    */
@@ -71,7 +71,7 @@ export class PlaybackRateManager {
       return this.DEFAULT_RATE;
     }
   }
-  
+
   /**
    * デフォルトの再生速度を保存
    */
@@ -84,7 +84,7 @@ export class PlaybackRateManager {
       return false;
     }
   }
-  
+
   /**
    * 現在のタブの再生速度を設定
    * @param rate 設定する再生速度
@@ -92,9 +92,9 @@ export class PlaybackRateManager {
    * @param fromDisabledToggle 拡張機能が無効化されたことによる変更かどうか
    */
   static async setCurrentTabPlaybackRate(
-    rate: number, 
-    save = true, 
-    fromDisabledToggle = false
+    rate: number,
+    save = true,
+    fromDisabledToggle = false,
   ): Promise<boolean> {
     try {
       // 拡張機能が有効かどうかチェック
@@ -105,33 +105,33 @@ export class PlaybackRateManager {
           return false;
         }
       }
-      
+
       // 現在のタブIDを取得
       const tabId = await this.getCurrentTabId();
       if (tabId === null) {
         throw new Error('Could not get current tab ID');
       }
-      
+
       // 保存オプションが有効な場合、デフォルト値を保存
       if (save) {
         await this.saveDefaultPlaybackRate(rate);
       }
-      
+
       // 再生速度の設定をリクエスト
       const response = await this.trySendMessage(tabId, {
         type: 'SET_PLAYBACK_RATE',
         rate,
         save,
-        fromDisabledToggle
+        fromDisabledToggle,
       });
-      
-      return response?.success || false;
+
+      return response && 'success' in response ? response.success as boolean : false;
     } catch (error) {
       console.error('[PlaybackRateManager] Error setting playback rate:', error);
       return false;
     }
   }
-  
+
   /**
    * 音楽検出結果に基づいた適切な再生速度を設定
    * @param isMusic 音楽コンテンツかどうか
@@ -142,7 +142,7 @@ export class PlaybackRateManager {
       if (isMusic) {
         return await this.setCurrentTabPlaybackRate(1.0, false);
       }
-      
+
       // 非音楽コンテンツの場合はデフォルト速度を適用
       const defaultRate = await this.getDefaultPlaybackRate();
       return await this.setCurrentTabPlaybackRate(defaultRate, false);
@@ -151,7 +151,7 @@ export class PlaybackRateManager {
       return false;
     }
   }
-  
+
   /**
    * 特定のタブでYouTubeの動画を再検出し、適切な再生速度を設定
    * @param tabId タブID
@@ -162,10 +162,10 @@ export class PlaybackRateManager {
       const response = await browserAPI.runtime.sendMessage({
         type: 'REFRESH_VIDEO_DETECTION',
         tabId,
-        videoId
+        videoId,
       });
-      
-      return response?.success || false;
+
+      return response && 'success' in response ? response.success as boolean : false;
     } catch (error) {
       console.error('[PlaybackRateManager] Error refreshing video detection:', error);
       return false;

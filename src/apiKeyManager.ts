@@ -23,7 +23,7 @@ interface KeyCache {
 
 class ApiKeyManager {
   private keyCache: Map<ApiKeyType, KeyCache> = new Map();
-  
+
   /**
    * Securely saves an API key
    * @param type Type of the key
@@ -38,28 +38,28 @@ class ApiKeyManager {
         this.keyCache.delete(type);
         return true;
       }
-      
+
       // Encrypt the key
       const encryptedKey = await encryptText(key);
-      
+
       // Save the encrypted key
       const saveResult = await StorageManager.set(String(type), encryptedKey);
-      
+
       if (saveResult) {
         // Update in-memory cache
         this.keyCache.set(type, {
           value: key,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       }
-      
+
       return saveResult;
     } catch (error) {
       console.error(`Failed to save API key (${type}):`, error);
       return false;
     }
   }
-  
+
   /**
    * Securely retrieves an API key
    * @param type Type of the key
@@ -72,34 +72,34 @@ class ApiKeyManager {
       if (cachedKey && (Date.now() - cachedKey.timestamp) < KEY_EXPIRY_TIME) {
         return cachedKey.value;
       }
-      
+
       // Get from storage if not in cache
-      const encryptedKey = await StorageManager.get<any>(String(type));
-      
+      const encryptedKey = await StorageManager.get<string>(String(type));
+
       // If key does not exist
       if (!encryptedKey) {
         console.log(`[apiKeyManager] No key found for ${type}`);
         return '';
       }
-      
+
       // Decrypt the key
       const key = await decryptText(encryptedKey);
-      
+
       // Update in-memory cache if decryption is successful
       if (key) {
         this.keyCache.set(type, {
           value: key,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       }
-      
+
       return key;
     } catch (error) {
       console.error(`Failed to retrieve API key (${type}):`, error);
       return '';
     }
   }
-  
+
   /**
    * Checks if an API key exists
    * @param type Type of the key
@@ -114,7 +114,7 @@ class ApiKeyManager {
       return false;
     }
   }
-  
+
   /**
    * Clears the in-memory cache
    * Should be called for security reasons or when the extension restarts

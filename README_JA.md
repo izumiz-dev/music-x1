@@ -1,6 +1,6 @@
 <div align="center">
   <img src="src/icons/icon.svg" alt="Music x1 Logo" width="128" height="128" />
-  
+
   # Music x1 Browser Extension
 
   [![Release](https://img.shields.io/github/v/release/izumiz-dev/music-x1?style=flat-square)](https://github.com/izumiz-dev/music-x1/releases)
@@ -166,6 +166,9 @@ Firefox XPIファイルが`dist/firefox-addon`ディレクトリに作成され�
 - `pnpm package:chrome` - Chrome拡張機能をビルドしてパッケージ化（`dist/chrome-ext`に出力）
 - `pnpm package:firefox` - Firefox拡張機能をビルドしてパッケージ化（`dist/firefox-addon`に出力）
 - `pnpm install:firefox-deps` - Firefox固有の依存関係をインストール
+- `pnpm lint` - ESLintを実行してコードスタイルの問題をチェック
+- `pnpm lint:fix` - ESLintを実行して問題を自動修正
+- `pnpm type-check` - TypeScriptコンパイラを実行して型エラーをチェック
 
 ### 技術スタック
 
@@ -191,7 +194,7 @@ Firefox XPIファイルが`dist/firefox-addon`ディレクトリに作成され�
 一般のFirefoxユーザーへの配布には、すべての拡張機能はMozillaによる署名が必要です：
 
 1. [addons.mozilla.org](https://addons.mozilla.org/)で開発者アカウントを作成
-2. `pnpm create:firefox-addon`を使用してXPIファイルを生成
+2. `pnpm package:firefox`を使用してXPIファイルを生成
 3. AMO開発者ダッシュボードを通じてXPIファイルを提出
 4. 公開リストまたは自己配布（非公開）を選択
 5. 承認後、配布用に署名済みXPIをダウンロード

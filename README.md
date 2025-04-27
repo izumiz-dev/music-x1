@@ -1,6 +1,6 @@
 <div align="center">
   <img src="src/icons/icon.svg" alt="Music x1 Logo" width="128" height="128" />
-  
+
   # Music x1 Browser Extension
 
   [![Release](https://img.shields.io/github/v/release/izumiz-dev/music-x1?style=flat-square)](https://github.com/izumiz-dev/music-x1/releases)
@@ -168,6 +168,9 @@ Both API keys are required and can be obtained from Google Cloud Console:
 - `pnpm package:chrome` - Build and package Chrome extension (outputs to `dist/chrome-ext`)
 - `pnpm package:firefox` - Build and package Firefox extension (outputs to `dist/firefox-addon`)
 - `pnpm install:firefox-deps` - Install Firefox-specific dependencies
+- `pnpm lint` - Run ESLint to check for code style issues
+- `pnpm lint:fix` - Run ESLint and automatically fix issues
+- `pnpm type-check` - Run TypeScript compiler to check for type errors
 
 ### Tech Stack
 
@@ -193,7 +196,7 @@ During development, you can test unsigned extensions in Firefox Developer Editio
 For distribution to regular Firefox users, all extensions must be signed by Mozilla:
 
 1. Create a developer account on [addons.mozilla.org](https://addons.mozilla.org/)
-2. Generate an XPI file using `pnpm create:firefox-addon`
+2. Generate an XPI file using `pnpm package:firefox`
 3. Submit the XPI file through the AMO developer dashboard
 4. Choose either public listing or self-distribution (unlisted)
 5. After approval, download the signed XPI for distribution

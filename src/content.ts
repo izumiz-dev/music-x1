@@ -8,27 +8,27 @@ let isInitialized = false;
 const handleNavigation = async () => {
   console.log('[content] Handling navigation');
   isInitialized = false;
-  
+
   // Start initialization process
   initializeContentScript();
-  
+
   // A single notification is sufficient, so reduce the number of notifications
   setTimeout(async () => {
     console.log('[content] Notifying background script about navigation');
     try {
-      const response = await browserAPI.runtime.sendMessage({ 
+      const response = await browserAPI.runtime.sendMessage({
         type: 'PAGE_NAVIGATION',
-        url: window.location.href
+        url: window.location.href,
       });
-      
+
       if (response?.success) {
         console.log('[content] Background script acknowledged navigation');
       } else {
         // Only try again in case of error
         setTimeout(async () => {
-          await browserAPI.runtime.sendMessage({ 
+          await browserAPI.runtime.sendMessage({
             type: 'PAGE_NAVIGATION',
-            url: window.location.href
+            url: window.location.href,
           });
         }, 1000);
       }
@@ -43,7 +43,7 @@ const videoObserverConfig = {
   childList: true,
   subtree: true,
   attributes: true,
-  characterData: false
+  characterData: false,
 };
 
 // Function to find and initialize video element
@@ -74,7 +74,7 @@ const tryInitialize = async (maxAttempts = 15) => {
 };
 
 // Monitor dynamic DOM changes
-const observer = new MutationObserver((mutations) => {
+const observer = new MutationObserver((_mutations) => {
   if (!isInitialized) {
     findAndInitializeVideo();
   }
@@ -91,14 +91,14 @@ const navigationObserver = new MutationObserver(() => {
 // Implementation of initialization check
 const initializeContentScript = async () => {
   console.log('[content] Starting initialization process');
-  
+
   // Immediate check
   if (!findAndInitializeVideo()) {
     // Start monitoring video element
     observer.observe(document.body, videoObserverConfig);
     // Try initialization asynchronously
     tryInitialize();
-    
+
     // Also check after window load event completes
     window.addEventListener('load', () => {
       console.log('[content] Window load event fired');
@@ -128,7 +128,7 @@ const setVideoPlaybackRate = (rate: number, retry = 0, maxRetries = 3) => {
     try {
       console.log(`[content] Current playback rate: ${videoElement.playbackRate}, setting to: ${rate}`);
       videoElement.playbackRate = rate;
-      
+
       // YouTubeはしばしば再生速度をリセットするので、一定時間後に再確認する
       setTimeout(() => {
         try {
@@ -141,11 +141,11 @@ const setVideoPlaybackRate = (rate: number, retry = 0, maxRetries = 3) => {
           console.error('[content] Error in delayed rate setting:', e);
         }
       }, 500);
-      
+
       return true;
     } catch (error) {
       console.error('[content] Error setting playback rate:', error);
-      
+
       // リトライロジック
       if (retry < maxRetries) {
         console.log(`[content] Retrying set playback rate (${retry + 1}/${maxRetries})`);
@@ -153,12 +153,12 @@ const setVideoPlaybackRate = (rate: number, retry = 0, maxRetries = 3) => {
           setVideoPlaybackRate(rate, retry + 1, maxRetries);
         }, 300);
       }
-      
+
       return false;
     }
   } else {
     console.log('[content] Video element not found for playback rate setting');
-    
+
     // ビデオ要素が見つからない場合もリトライ
     if (retry < maxRetries) {
       console.log(`[content] Waiting for video element (${retry + 1}/${maxRetries})`);
@@ -166,7 +166,7 @@ const setVideoPlaybackRate = (rate: number, retry = 0, maxRetries = 3) => {
         setVideoPlaybackRate(rate, retry + 1, maxRetries);
       }, 500);
     }
-    
+
     return false;
   }
 };
@@ -175,15 +175,15 @@ const setVideoPlaybackRate = (rate: number, retry = 0, maxRetries = 3) => {
 browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Check initialization status
   if (message.type === 'CHECK_READY') {
-    sendResponse(isInitialized);
+    sendResponse({ success: isInitialized });
     return true;
   }
 
   // Return error if not initialized
   if (!isInitialized && message.type !== 'CHECK_READY') {
-    sendResponse({ 
-      success: false, 
-      error: 'Content script not initialized' 
+    sendResponse({
+      success: false,
+      error: 'Content script not initialized',
     });
     return true;
   }
@@ -193,19 +193,19 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'SET_PLAYBACK_RATE': {
         // Playback rate setting request
         console.log('[content] Received playback rate setting message:', message.rate, 'save:', message.save);
-        
+
         // First check if the message is explicitly marked as from a disabled state toggle
         // This allows resetting to 1x when disabling the extension
         const isDisabledReset = message.save === false && message.rate === 1.0 && message.fromDisabledToggle;
-        
+
         // Get extension enabled state
         StorageManager.get<boolean>('extensionEnabled').then(extensionEnabled => {
           const isEnabled = extensionEnabled !== false; // Default to true if not set
-          
+
           // Only proceed if extension is enabled OR this is a reset from disabling
           if (isEnabled || isDisabledReset) {
-            const success = setVideoPlaybackRate(message.rate);
-            
+            const success = setVideoPlaybackRate(Number(message.rate));
+
             if (success) {
               console.log('[content] Set playback rate successfully');
               sendResponse({ success: true });
@@ -218,25 +218,25 @@ browserAPI.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.log('[content] Extension is disabled, ignoring playback rate change');
             sendResponse({
               success: false,
-              error: 'Extension is disabled'
+              error: 'Extension is disabled',
             });
           }
         }).catch(error => {
           console.error('[content] Error checking extension state:', error);
-          sendResponse({ 
-            success: false, 
-            error: 'Failed to check extension state' 
+          sendResponse({
+            success: false,
+            error: 'Failed to check extension state',
           });
         });
-        
+
         return true; // Required for async response
       }
     }
   } catch (error) {
     console.error('Error in message listener:', error);
-    sendResponse({ 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    sendResponse({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
   return true;  // Required for async response

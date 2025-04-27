@@ -12,9 +12,9 @@ if (isTemporaryAddon) {
 }
 
 // Log any API errors for debugging
-function logAPIError(apiName: string, error: any) {
+function logAPIError(apiName: string, error: Error | unknown) {
   console.error(`[browser-polyfill] Error in ${apiName}:`, error);
-  if (isTemporaryAddon && error.message && error.message.includes('temporary addon ID')) {
+  if (isTemporaryAddon && error instanceof Error && error.message && error.message.includes('temporary addon ID')) {
     console.warn('[browser-polyfill] This appears to be related to Firefox temporary addon limitations.');
   }
   return error;
@@ -25,13 +25,16 @@ export const browserAPI = {
   // Storage API
   storage: {
     sync: {
-      get: async <T = any>(keys?: any): Promise<T> => {
+      // Restore original keys type including Record<string, unknown>
+      get: async <T = Record<string, unknown>>(keys?: string | string[] | Record<string, unknown> | null): Promise<T> => {
+        const processedKeys = keys === undefined ? null : keys;
         try {
           if (isFirefox) {
-            return await browser.storage.sync.get(keys as any) as T;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return await browser.storage.sync.get(processedKeys as any) as T;
           } else {
             return await new Promise<T>((resolve) => {
-              chrome.storage.sync.get(keys as any, (result) => {
+              chrome.storage.sync.get(processedKeys, (result) => {
                 const error = chrome.runtime.lastError;
                 if (error) {
                   console.error('[browser-polyfill] Chrome storage.sync.get error:', error);
@@ -46,7 +49,8 @@ export const browserAPI = {
           if (isTemporaryAddon) {
             try {
               console.log('[browser-polyfill] Falling back to storage.local for temporary addon');
-              return await browser.storage.local.get(keys) as T;
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              return await browser.storage.local.get(processedKeys as any) as T;
             } catch (fallbackError) {
               logAPIError('storage.local.get (fallback)', fallbackError);
               return {} as T; // Return empty object as last resort
@@ -89,7 +93,8 @@ export const browserAPI = {
       remove: async (keys: string | string[]): Promise<void> => {
         try {
           if (isFirefox) {
-            return await browser.storage.sync.remove(keys);
+            // Explicitly cast keys to expected type for Firefox remove API
+            return await browser.storage.sync.remove(keys as string | string[]);
           } else {
             return await new Promise<void>((resolve, reject) => {
               chrome.storage.sync.remove(keys, () => {
@@ -109,23 +114,27 @@ export const browserAPI = {
           if (isTemporaryAddon) {
             try {
               console.log('[browser-polyfill] Falling back to storage.local for temporary addon');
-              return await browser.storage.local.remove(keys);
+              // Cast keys for fallback local storage remove
+              return await browser.storage.local.remove(keys as string | string[]);
             } catch (fallbackError) {
               logAPIError('storage.local.remove (fallback)', fallbackError);
             }
           }
           throw error;
         }
-      }
+      },
     },
     local: {
-      get: async <T = any>(keys?: any): Promise<T> => {
+      // Restore original keys type including Record<string, unknown>
+      get: async <T = Record<string, unknown>>(keys?: string | string[] | Record<string, unknown> | null): Promise<T> => {
+        const processedKeys = keys === undefined ? null : keys;
         try {
           if (isFirefox) {
-            return await browser.storage.local.get(keys as any) as T;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return await browser.storage.local.get(processedKeys as any) as T;
           } else {
             return await new Promise<T>((resolve) => {
-              chrome.storage.local.get(keys as any, (result) => {
+              chrome.storage.local.get(processedKeys, (result) => {
                 const error = chrome.runtime.lastError;
                 if (error) {
                   console.error('[browser-polyfill] Chrome storage.local.get error:', error);
@@ -164,7 +173,8 @@ export const browserAPI = {
       remove: async (keys: string | string[]): Promise<void> => {
         try {
           if (isFirefox) {
-            return await browser.storage.local.remove(keys);
+            // Use specific cast matching the function signature and Firefox API expectation
+            return await browser.storage.local.remove(keys as string | string[]);
           } else {
             return await new Promise<void>((resolve, reject) => {
               chrome.storage.local.remove(keys, () => {
@@ -182,10 +192,10 @@ export const browserAPI = {
           logAPIError('storage.local.remove', error);
           throw error;
         }
-      }
-    }
+      },
+    },
   },
-  
+
   // Tabs API
   tabs: {
     query: async (queryInfo: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]> => {
@@ -202,7 +212,7 @@ export const browserAPI = {
         throw error;
       }
     },
-    sendMessage: async <T = any>(tabId: number, message: any): Promise<T> => {
+    sendMessage: async <T = Record<string, unknown>>(tabId: number, message: Record<string, unknown>): Promise<T> => {
       try {
         if (isFirefox) {
           return await browser.tabs.sendMessage(tabId, message) as T;
@@ -225,7 +235,7 @@ export const browserAPI = {
     },
     onUpdated: {
       addListener: (
-        callback: (tabId: number, changeInfo: any, tab: chrome.tabs.Tab) => void
+        callback: (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => void,
       ) => {
         if (isFirefox) {
           browser.tabs.onUpdated.addListener(callback);
@@ -234,20 +244,20 @@ export const browserAPI = {
         }
       },
       removeListener: (
-        callback: (tabId: number, changeInfo: any, tab: chrome.tabs.Tab) => void
+        callback: (tabId: number, changeInfo: chrome.tabs.TabChangeInfo, tab: chrome.tabs.Tab) => void,
       ) => {
         if (isFirefox) {
           browser.tabs.onUpdated.removeListener(callback);
         } else {
           chrome.tabs.onUpdated.removeListener(callback);
         }
-      }
-    }
+      },
+    },
   },
-  
+
   // Runtime API
   runtime: {
-    sendMessage: async <T = any>(message: any): Promise<T> => {
+    sendMessage: async <T = Record<string, unknown>>(message: Record<string, unknown>): Promise<T> => {
       try {
         if (isFirefox) {
           return await browser.runtime.sendMessage(message);
@@ -269,20 +279,20 @@ export const browserAPI = {
       }
     },
     onMessage: {
-      addListener: (callback: (message: any, sender: any, sendResponse: any) => void) => {
+      addListener: (callback: (message: Record<string, unknown>, sender: chrome.runtime.MessageSender, sendResponse: (response?: Record<string, unknown>) => void) => void) => {
         if (isFirefox) {
           browser.runtime.onMessage.addListener(callback);
         } else {
           chrome.runtime.onMessage.addListener(callback);
         }
       },
-      removeListener: (callback: (message: any, sender: any, sendResponse: any) => void) => {
+      removeListener: (callback: (message: Record<string, unknown>, sender: chrome.runtime.MessageSender, sendResponse: (response?: Record<string, unknown>) => void) => void) => {
         if (isFirefox) {
           browser.runtime.onMessage.removeListener(callback);
         } else {
           chrome.runtime.onMessage.removeListener(callback);
         }
-      }
+      },
     },
     getURL: (path: string) => {
       try {
@@ -295,9 +305,9 @@ export const browserAPI = {
         logAPIError('runtime.getURL', error);
         throw error;
       }
-    }
+    },
   },
-  
+
   // Action API (browserAction in Firefox, action in Chrome MV3)
   action: {
     setBadgeText: async (details: { text: string; tabId?: number }) => {
@@ -341,8 +351,8 @@ export const browserAPI = {
         logAPIError('action.setIcon', error);
         throw error;
       }
-    }
-  }
+    },
+  },
 };
 
 // TypeScript declarations
@@ -350,5 +360,5 @@ declare global {
   interface Window {
     browser?: typeof chrome;
   }
-  var browser: typeof chrome;
+  const browser: typeof chrome;
 }

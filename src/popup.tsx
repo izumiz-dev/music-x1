@@ -1,12 +1,12 @@
-import { h } from "preact";
-import { useEffect, useState } from "preact/hooks";
-import { browserAPI } from "./browser-polyfill";
-import { StorageManager } from "./storage-manager";
-import { NavigationHelper } from "./navigation-helper";
-import { ApiKeyType, apiKeyManager } from "./apiKeyManager";
-import { PlaybackRateManager } from "./playback-rate-manager";
+import { h } from 'preact';
+import { useEffect, useState } from 'preact/hooks';
+import { browserAPI } from './browser-polyfill';
+import { StorageManager } from './storage-manager';
+import { NavigationHelper } from './navigation-helper';
+import { ApiKeyType, apiKeyManager } from './apiKeyManager';
+import { PlaybackRateManager } from './playback-rate-manager';
 
-import "./popup.css";
+import './popup.css';
 
 const Popup = () => {
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);
@@ -23,16 +23,16 @@ const Popup = () => {
         // PlaybackRateの読み込み
         const defaultPlaybackRate = await PlaybackRateManager.getDefaultPlaybackRate();
         setPlaybackRate(defaultPlaybackRate);
-        
+
         // 拡張機能の有効/無効状態の読み込み
-        const extensionEnabled = await StorageManager.get<boolean>("extensionEnabled");
+        const extensionEnabled = await StorageManager.get<boolean>('extensionEnabled');
         setIsExtensionEnabled(extensionEnabled !== false); // デフォルトはtrue
-        
+
         // APIキーの確認
         const hasGeminiKey = await apiKeyManager.hasApiKey(ApiKeyType.GEMINI);
         setHasApiKey(hasGeminiKey);
       } catch (error) {
-        console.error("[popup] Failed to load settings:", error);
+        console.error('[popup] Failed to load settings:', error);
       }
     }
 
@@ -66,11 +66,11 @@ const Popup = () => {
       const tabs = await browserAPI.tabs.query({ active: true, currentWindow: true });
       const currentTab = tabs[0] as chrome.tabs.Tab;
       setIsYouTube(currentTab?.url?.includes('youtube.com') || false);
-      
+
       if (tabs[0]) {
         setCurrentTab(tabs[0] as chrome.tabs.Tab);
       }
-    }
+    };
 
     loadSettings();
     checkIfMusicVideo();
@@ -80,17 +80,15 @@ const Popup = () => {
   const toggleExtensionState = async () => {
     const newState = !isExtensionEnabled;
     setIsExtensionEnabled(newState);
-    await StorageManager.set("extensionEnabled", newState);
-    
+    await StorageManager.set('extensionEnabled', newState);
+
     // Notify background script about the state change
     browserAPI.runtime.sendMessage({ type: 'EXTENSION_TOGGLE', enabled: newState });
-    
+
     // If disabling, reset playback speed to 1x
     if (!newState && currentTab?.id && typeof currentTab.id === 'number') {
       await PlaybackRateManager.setCurrentTabPlaybackRate(1.0, false, true);
-    }
-    // If turning extension back on, refresh current tab's playback rate
-    else if (newState && currentTab?.id && typeof currentTab.id === 'number' && currentTab?.url?.includes('youtube.com/watch')) {
+    } else if (newState && currentTab?.id && typeof currentTab.id === 'number' && currentTab?.url?.includes('youtube.com/watch')) { // If turning extension back on, refresh current tab's playback rate
       const videoId = new URL(currentTab.url).searchParams.get('v');
       if (videoId) {
         await PlaybackRateManager.refreshVideoDetection(currentTab.id, videoId);
@@ -105,7 +103,7 @@ const Popup = () => {
       console.log('[popup] Extension is disabled, not applying playback rate change');
       return;
     }
-    
+
     if (save) {
       try {
         // PlaybackRateManagerを使用して再生速度を設定
@@ -119,14 +117,18 @@ const Popup = () => {
     }
   };
 
-  const handlePlaybackRateChange = (event: any) => {
-    const newRate = parseFloat(event.target.value);
-    updatePlaybackRate(newRate);
+  const handlePlaybackRateChange = (event: h.JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    if (event.target) {
+      const newRate = parseFloat((event.target as HTMLInputElement).value);
+      updatePlaybackRate(newRate);
+    }
   };
 
-  const handleSliderInput = (event: any) => {
-    const newRate = parseFloat(event.target.value);
-    updatePlaybackRate(newRate, true);
+  const handleSliderInput = (event: h.JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    if (event.target) {
+      const newRate = parseFloat((event.target as HTMLInputElement).value);
+      updatePlaybackRate(newRate, true);
+    }
   };
 
   const openOptions = async () => {
@@ -151,7 +153,7 @@ const Popup = () => {
           <span class="toggle-label">{isExtensionEnabled ? 'Enabled' : 'Disabled'}</span>
         </div>
       </div>
-      
+
       {!hasApiKey && (
         <div class="api-key-warning">
           <p>Gemini API key is not set.</p>
@@ -170,7 +172,7 @@ const Popup = () => {
         <div class={`playback-settings ${isMusicVideo ? 'music-mode' : ''}`}>
           <div class="speed-display">
             <span class="speed-value">{isMusicVideo ? 'x1' : `x${playbackRate.toFixed(2)}`}</span>
-            <span class="speed-label">{isMusicVideo ? "Enjoy the Music!" : "Set Default Playback Speed"}</span>
+            <span class="speed-label">{isMusicVideo ? 'Enjoy the Music!' : 'Set Default Playback Speed'}</span>
           </div>
           {!isMusicVideo && (
             <div class="slider-container">

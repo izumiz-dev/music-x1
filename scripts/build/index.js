@@ -2,6 +2,7 @@ const esbuild = require('esbuild');
 const fs = require('fs');
 const path = require('path');
 const glob = require('glob');
+const { execSync } = require('child_process');
 require('dotenv').config();
 
 // Function to output logs with timestamp
@@ -20,14 +21,39 @@ function logWithDateTime(message) {
 }
 
 /**
+ * Run type checking and linting
+ * @param {boolean} fix - Whether to automatically fix linting issues
+ * @returns {boolean} - Whether the checks passed
+ */
+function runQualityChecks(fix = false) {
+  try {
+    // Run TypeScript type checking
+    logWithDateTime('Running TypeScript type checking...');
+    execSync('pnpm type-check', { stdio: 'inherit' });
+    
+    // Run ESLint
+    logWithDateTime(`Running ESLint${fix ? ' with auto-fix' : ''}...`);
+    execSync(`pnpm lint${fix ? ':fix' : ''}`, { stdio: 'inherit' });
+    
+    logWithDateTime('Quality checks passed!');
+    return true;
+  } catch (error) {
+    logWithDateTime('Quality checks failed!');
+    return false;
+  }
+}
+
+/**
  * Build extension for a specific browser
  * @param {string} browser - Browser to build for ('chrome' or 'firefox')
  * @param {object} options - Build options
  */
 async function buildExtension(browser, options = {}) {
+  // Extract options
   const isDevMode = options.dev || false;
   const isWatch = options.watch || false;
   const isPackage = options.package || false;
+  const skipQualityChecks = options.skipQualityChecks || false;
   
   // Set browser-specific options
   const browserOptions = {
@@ -66,6 +92,15 @@ async function buildExtension(browser, options = {}) {
       'process.env.BROWSER': `"${browser}"`
     },
   };
+  
+  // Run quality checks before building
+  if (!skipQualityChecks) {
+    const qualityChecksPassed = runQualityChecks(isDevMode);
+    if (!qualityChecksPassed && !isDevMode) {
+      logWithDateTime('Build aborted due to quality check failures.');
+      process.exit(1);
+    }
+  }
   
   // Execute build
   try {
@@ -178,6 +213,7 @@ const options = {
   dev: args.includes('--dev'),
   watch: args.includes('--watch'),
   package: args.includes('--package'),
+  skipQualityChecks: args.includes('--skip-quality-checks'),
 };
 
 // Determine browser target(s)
