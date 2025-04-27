@@ -30,11 +30,11 @@ function runQualityChecks(fix = false) {
     // Run TypeScript type checking
     logWithDateTime('Running TypeScript type checking...');
     execSync('pnpm type-check', { stdio: 'inherit' });
-    
+
     // Run ESLint
     logWithDateTime(`Running ESLint${fix ? ' with auto-fix' : ''}...`);
     execSync(`pnpm lint${fix ? ':fix' : ''}`, { stdio: 'inherit' });
-    
+
     logWithDateTime('Quality checks passed!');
     return true;
   } catch (error) {
@@ -54,7 +54,7 @@ async function buildExtension(browser, options = {}) {
   const isWatch = options.watch || false;
   const isPackage = options.package || false;
   const skipQualityChecks = options.skipQualityChecks || false;
-  
+
   // Set browser-specific options
   const browserOptions = {
     chrome: {
@@ -65,19 +65,19 @@ async function buildExtension(browser, options = {}) {
     firefox: {
       outputDir: 'dist/firefox',
       target: ['firefox102'],
-      manifestTransform: './scripts/firefox/generate-manifest', // Firefox needs manifest transformation
+      manifestTransform: '../firefox/generate-manifest', // Correct relative path
     }
   };
-  
+
   if (!browserOptions[browser]) {
     throw new Error(`Unsupported browser: ${browser}. Supported browsers are 'chrome' and 'firefox'.`);
   }
-  
+
   const { outputDir, target, manifestTransform } = browserOptions[browser];
-  
+
   // Get entry points
   const entryPoints = glob.sync('src/**/*.{ts,tsx}');
-  
+
   // Build configuration
   const buildOptions = {
     entryPoints,
@@ -92,7 +92,7 @@ async function buildExtension(browser, options = {}) {
       'process.env.BROWSER': `"${browser}"`
     },
   };
-  
+
   // Run quality checks before building
   if (!skipQualityChecks) {
     const qualityChecksPassed = runQualityChecks(isDevMode);
@@ -101,7 +101,7 @@ async function buildExtension(browser, options = {}) {
       process.exit(1);
     }
   }
-  
+
   // Execute build
   try {
     // Build with esbuild
@@ -122,7 +122,7 @@ async function buildExtension(browser, options = {}) {
           },
         }],
       });
-      
+
       await ctx.watch();
       logWithDateTime(`Watching for changes in ${browser} build...`);
       copyStaticFiles(browser, manifestTransform);
@@ -130,11 +130,11 @@ async function buildExtension(browser, options = {}) {
       await esbuild.build(buildOptions);
       copyStaticFiles(browser, manifestTransform);
       logWithDateTime(`${browser} build completed successfully!`);
-      
+
       // If package flag is set, create the extension package
       if (isPackage) {
         logWithDateTime(`Packaging ${browser} extension...`);
-        
+
         if (browser === 'chrome') {
           require('../create-chrome-addon');
         } else if (browser === 'firefox') {
@@ -155,20 +155,20 @@ async function buildExtension(browser, options = {}) {
  */
 function copyStaticFiles(browser, manifestTransform) {
   const outputDir = `dist/${browser}`;
-  
+
   try {
     // Create output directory if it doesn't exist
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
-    
+
     // Copy HTML files
     const htmlFiles = glob.sync('src/**/*.html');
     htmlFiles.forEach(file => {
       const relativePath = path.relative('src', file);
       fs.copyFileSync(file, path.join(outputDir, relativePath));
     });
-    
+
     // Handle manifest
     if (manifestTransform) {
       // Use transform for Firefox manifest
@@ -179,28 +179,28 @@ function copyStaticFiles(browser, manifestTransform) {
       // Direct copy for Chrome manifest
       fs.copyFileSync('manifest.json', path.join(outputDir, 'manifest.json'));
     }
-    
+
     // Copy CSS files
     const cssFiles = glob.sync('src/**/*.css');
     cssFiles.forEach(file => {
       const relativePath = path.relative('src', file);
       fs.copyFileSync(file, path.join(outputDir, relativePath));
     });
-    
+
     // Generate PNG icons from SVG
     require('../generate-icons');
-    
+
     // Copy generated icons to browser build directory
     const iconFiles = glob.sync('dist/icons/*.png');
     if (!fs.existsSync(path.join(outputDir, 'icons'))) {
       fs.mkdirSync(path.join(outputDir, 'icons'), { recursive: true });
     }
-    
+
     iconFiles.forEach(file => {
       const fileName = path.basename(file);
       fs.copyFileSync(file, path.join(outputDir, 'icons', fileName));
     });
-    
+
     logWithDateTime(`Static files copied successfully for ${browser}`);
   } catch (error) {
     logWithDateTime(`Failed to copy static files for ${browser}: ${error}`);

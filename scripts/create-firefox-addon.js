@@ -15,7 +15,7 @@ async function createFirefoxAddon() {
 
     // Check Firefox build directory
     const firefoxDistDir = path.join(__dirname, '../dist/firefox');
-    
+
     // Check if already built
     if (!fs.existsSync(firefoxDistDir) || !fs.existsSync(path.join(firefoxDistDir, 'manifest.json'))) {
       console.log('Running Firefox build...');
@@ -33,20 +33,27 @@ async function createFirefoxAddon() {
     // Set the XPI file name (XPI is the Firefox add-on extension)
     const xpiFileName = `music-x1-firefox-v${version}.xpi`;
     const xpiFilePath = path.join(outputDir, xpiFileName);
-    
+
     // Package the contents of the dist-firefox directory into an XPI file
     console.log(`Creating XPI file: ${xpiFilePath}`);
-    
-    // Create ZIP file (XPI is essentially a ZIP file)
-    execSync(`cd "${firefoxDistDir}" && powershell Compress-Archive -Path * -DestinationPath "${xpiFilePath}" -Force`);
-    
-    // Change extension from zip to xpi if needed
+
+    // Create ZIP file (XPI is essentially a ZIP file) based on OS
+    if (process.platform === 'win32') {
+      // Use PowerShell on Windows
+      execSync(`cd "${firefoxDistDir}" && powershell Compress-Archive -Path * -DestinationPath "${xpiFilePath}" -Force`);
+    } else {
+      // Use zip on Linux/macOS
+      // Ensure zip is installed in the environment (GitHub Actions runners usually have it)
+      execSync(`cd "${firefoxDistDir}" && zip -r "${xpiFilePath}" *`);
+    }
+
+    // Change extension from zip to xpi if needed (zip command might create .zip)
     if (path.extname(xpiFilePath) === '.zip') {
       const newPath = xpiFilePath.replace('.zip', '.xpi');
       fs.renameSync(xpiFilePath, newPath);
       console.log(`Renamed file to: ${path.basename(newPath)}`);
     }
-    
+
     console.log('\nCompleted!');
     console.log(`Firefox add-on file created: ${xpiFilePath}`);
     console.log('\nInstallation Instructions:');
