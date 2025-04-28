@@ -9,6 +9,7 @@ const version = process.env.PACKAGE_VERSION || packageJson.version;
 /**
  * Script to create Chrome extension file (.crx or .zip)
  * With improvements for proper icon file handling
+ * Cross-platform compatible (Windows, Linux, macOS)
  */
 async function createChromeExtension() {
   try {
@@ -107,29 +108,47 @@ async function createChromeExtension() {
       execSync(`cd "${chromeDistDir}" && zip -r "${zipFilePath}" *`);
     }
 
-    // Create a copy for direct installation
-    const directInstallDir = `D:\\music-x1-chrome-v${version}`;
-    console.log(`Creating copy for direct installation at: ${directInstallDir}`);
-    
-    // Remove existing directory if it exists
-    if (fs.existsSync(directInstallDir)) {
-      execSync(`rmdir /s /q "${directInstallDir}"`, { stdio: 'inherit' });
+    // =====================================================
+    // CROSS-PLATFORM FIX: Create a platform-appropriate copy for direct installation
+    // =====================================================
+    if (process.platform === 'win32') {
+      // Windows-specific direct install directory
+      const directInstallDir = path.join('D:', `music-x1-chrome-v${version}`);
+      console.log(`Creating copy for direct installation at: ${directInstallDir}`);
+      
+      // Remove existing directory if it exists
+      if (fs.existsSync(directInstallDir)) {
+        execSync(`rmdir /s /q "${directInstallDir}"`, { stdio: 'inherit' });
+      }
+      
+      // Create directory
+      fs.mkdirSync(directInstallDir, { recursive: true });
+      
+      // Copy all files from Chrome build directory using Windows xcopy
+      execSync(`xcopy "${chromeDistDir}\\*" "${directInstallDir}\\" /E /I /H /Y`, { stdio: 'inherit' });
+      
+      console.log(`Direct installation directory created: ${directInstallDir}`);
+      console.log('\nInstallation Instructions:');
+      console.log('1. Open Chrome/Edge');
+      console.log('2. Go to "chrome://extensions/"');
+      console.log('3. Enable "Developer mode" in the top right corner');
+      console.log('4. Click "Load unpacked" and select the directory: ' + directInstallDir);
+    } else {
+      // Linux/macOS instruction
+      console.log('\nInstallation Instructions:');
+      console.log('1. Open Chrome/Edge');
+      console.log('2. Go to "chrome://extensions/"');
+      console.log('3. Enable "Developer mode" in the top right corner');
+      console.log('4. Click "Load unpacked" and select the directory: ' + chromeDistDir);
+      console.log('   OR');
+      console.log('5. Drag and drop the ZIP file into the Chrome/Edge extensions page');
     }
-    
-    // Create directory
-    fs.mkdirSync(directInstallDir, { recursive: true });
-    
-    // Copy all files from Chrome build directory
-    execSync(`xcopy "${chromeDistDir}\\*" "${directInstallDir}\\" /E /I /H /Y`, { stdio: 'inherit' });
+    // =====================================================
+    // End of cross-platform fix
+    // =====================================================
 
     console.log('\nCompleted!');
     console.log(`Chrome extension file created: ${zipFilePath}`);
-    console.log(`Direct installation directory created: ${directInstallDir}`);
-    console.log('\nInstallation Instructions:');
-    console.log('1. Open Chrome/Edge');
-    console.log('2. Go to "chrome://extensions/"');
-    console.log('3. Enable "Developer mode" in the top right corner');
-    console.log('4. Click "Load unpacked" and select the directory: ' + directInstallDir);
   } catch (error) {
     console.error('Error occurred:', error);
     process.exit(1);
