@@ -42,9 +42,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install Firefox dependencies
-        run: pnpm install:firefox-deps
-
       - name: Create release directories
         run: mkdir -p release
 
