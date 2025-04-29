@@ -1,0 +1,66 @@
+name: CI Checks
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - 'v*'  # タグのプッシュ時はリリースワークフローが実行されるため除外
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - uses: actions/cache@v3
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Install Firefox dependencies
+        run: pnpm install:firefox-deps
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build for Chrome
+        run: pnpm build:chrome
+
+      - name: Build for Firefox
+        run: pnpm build:firefox
+
+      - name: Verify build artifacts
+        run: |
+          if [ ! -d "./dist/chrome-ext" ] || [ ! -d "./dist/firefox-addon" ]; then
+            echo "Build artifacts are missing!"
+            exit 1
+          fi
+          echo "Build verification completed successfully."
