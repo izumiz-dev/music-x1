@@ -4,129 +4,184 @@ const path = require('path');
 const glob = require('glob');
 require('dotenv').config();
 
-// Function to output logs with timestamp
-function logWithDateTime(message) {
+/**
+ * Simplified build process
+ * For both Chrome and Firefox
+ */
+
+// Logging function
+function log(message) {
   const now = new Date();
   const datetime = now.toLocaleString('ja-JP', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
     hour12: false
   });
   console.log(`[${datetime}] ${message}`);
 }
 
-// Get entry points
-const entryPoints = glob.sync('src/**/*.{ts,tsx}');
-
-// Set Chrome build directory
-const OUTPUT_DIR = 'dist/chrome';
-
-// Determine dev mode from command line arguments
-const isDevMode = process.argv.includes('--dev');
-
-// Build configuration
-const buildOptions = {
-  entryPoints,
-  bundle: true,
-  format: 'esm',
-  outdir: OUTPUT_DIR,
-  target: ['chrome58'],
-  minify: !isDevMode,
-  sourcemap: isDevMode,
-  define: {
-    'process.env.NODE_ENV': isDevMode ? '"development"' : '"production"',
-    'process.env.BROWSER': '"chrome"'
-  },
-};
-
-// Copy static files
-function copyStaticFiles() {
-  try {
-    // Create output directory if it doesn't exist
-    if (!fs.existsSync(OUTPUT_DIR)) {
-      fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+/**
+ * Build for the specified browser
+ * @param {string} browser - 'chrome' or 'firefox'
+ * @param {boolean} isDev - whether in development mode
+ */
+async function buildForBrowser(browser, isDev) {
+  // Browser-specific configuration
+  const browserConfig = {
+    chrome: {
+      outputDir: 'dist/chrome',
+      target: ['chrome58'],
+      manifestTransform: false
+    },
+    firefox: {
+      outputDir: 'dist/firefox',
+      target: ['firefox102'],
+      manifestTransform: true
     }
-    
+  }[browser];
+
+  if (!browserConfig) {
+    throw new Error(`Unsupported browser: ${browser}`);
+  }
+
+  const { outputDir, target, manifestTransform } = browserConfig;
+
+  // Create output directory
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // Find entry points (TypeScript files)
+  const entryPoints = glob.sync('src/**/*.{ts,tsx}');
+
+  // Build configuration
+  const buildOptions = {
+    entryPoints,
+    bundle: true,
+    format: 'esm',
+    outdir: outputDir,
+    target,
+    minify: !isDev,
+    sourcemap: isDev,
+    define: {
+      'process.env.NODE_ENV': isDev ? '"development"' : '"production"',
+      'process.env.BROWSER': `"${browser}"`
+    },
+  };
+
+  try {
+    // Run TypeCheck
+    try {
+      log(`Running TypeScript type checking...`);
+      require('child_process').execSync('pnpm type-check', { stdio: 'inherit' });
+    } catch (error) {
+      log('TypeScript type check failed');
+      if (!isDev) {
+        throw error; // Abort on production build
+      }
+    }
+
+    // Execute build with esbuild
+    log(`Starting build for ${browser}...`);
+    await esbuild.build(buildOptions);
+
+    // Copy static files
+    copyStaticFiles(browser, outputDir, manifestTransform);
+
+    log(`Build for ${browser} completed successfully!`);
+    return true;
+  } catch (error) {
+    log(`Build failed for ${browser}: ${error}`);
+    return false;
+  }
+}
+
+/**
+ * Copy static files
+ */
+function copyStaticFiles(browser, outputDir, manifestTransform) {
+  try {
     // Copy HTML files
     const htmlFiles = glob.sync('src/**/*.html');
     htmlFiles.forEach(file => {
       const relativePath = path.relative('src', file);
-      fs.copyFileSync(file, path.join(OUTPUT_DIR, relativePath));
+      fs.copyFileSync(file, path.join(outputDir, relativePath));
     });
-    fs.copyFileSync('manifest.json', path.join(OUTPUT_DIR, 'manifest.json'));
 
     // Copy CSS files
     const cssFiles = glob.sync('src/**/*.css');
     cssFiles.forEach(file => {
       const relativePath = path.relative('src', file);
-      fs.copyFileSync(file, path.join(OUTPUT_DIR, relativePath));
+      fs.copyFileSync(file, path.join(outputDir, relativePath));
     });
 
-    // Generate PNG icons from SVG
+    // Handle manifest
+    if (manifestTransform) {
+      // For Firefox, transform the manifest
+      const sourceManifestPath = path.join(process.cwd(), 'manifest.json');
+      const outputManifestPath = path.join(outputDir, 'manifest.json');
+      require('./scripts/firefox/generate-manifest')
+        .generateFirefoxManifest(sourceManifestPath, outputManifestPath);
+    } else {
+      // For Chrome, copy directly
+      fs.copyFileSync('manifest.json', path.join(outputDir, 'manifest.json'));
+    }
+
+    // Generate and place icons
     require('./scripts/generate-icons');
 
-    // Copy generated icons to Chrome build directory
-    const iconFiles = glob.sync('dist/icons/*.png');
-    if (!fs.existsSync(path.join(OUTPUT_DIR, 'icons'))) {
-      fs.mkdirSync(path.join(OUTPUT_DIR, 'icons'), { recursive: true });
+    // Copy generated icons
+    const iconDir = path.join(outputDir, 'icons');
+    if (!fs.existsSync(iconDir)) {
+      fs.mkdirSync(iconDir, { recursive: true });
     }
-    
+
+    const iconFiles = glob.sync('dist/icons/*.png');
     iconFiles.forEach(file => {
       const fileName = path.basename(file);
-      fs.copyFileSync(file, path.join(OUTPUT_DIR, 'icons', fileName));
+      fs.copyFileSync(file, path.join(iconDir, fileName));
     });
 
-    logWithDateTime('Static files copied successfully');
+    log(`Static files copied successfully for ${browser}`);
   } catch (error) {
-    logWithDateTime(`Failed to copy static files: ${error}`);
+    log(`Failed to copy static files: ${error}`);
+    throw error;
   }
 }
 
-// Execute build
-async function build(watch = false) {
-  try {
-    // Build with esbuild
-    if (watch) {
-      const ctx = await esbuild.context({
-        ...buildOptions,
-        plugins: [{
-          name: 'watch-plugin',
-          setup(build) {
-            build.onEnd(result => {
-              if (result.errors.length > 0) {
-                logWithDateTime('Build failed with errors');
-              } else {
-                logWithDateTime('Build completed successfully');
-                copyStaticFiles();
-                // require('child_process').exec('wslview "http://reload.extensions"', (error) => {
-                //   if (error) {
-                //     logWithDateTime(`Failed to open browser: ${error}`);
-                //   }
-                // });
-              }
-            });
-          },
-        }],
-      });
-      
-      await ctx.watch();
-      logWithDateTime('Watching for changes...');
-      copyStaticFiles();
-    } else {
-      await esbuild.build(buildOptions);
-      copyStaticFiles();
-      logWithDateTime('Chrome build completed successfully!');
-    }
-  } catch (error) {
-    logWithDateTime(`Build failed: ${error}`);
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  return {
+    isDev: args.includes('--dev'),
+    browsers: args.includes('--chrome') ? ['chrome'] :
+              args.includes('--firefox') ? ['firefox'] :
+              ['chrome', 'firefox'], // Default is both
+  };
+}
+
+// Main process
+async function main() {
+  const { browsers, isDev } = parseArgs();
+
+  log('Starting build...');
+
+  // Build for each target browser
+  const results = [];
+  for (const browser of browsers) {
+    results.push(await buildForBrowser(browser, isDev));
+  }
+
+  // Check if all builds succeeded
+  const allSucceeded = results.every(result => result === true);
+
+  if (allSucceeded) {
+    log('All builds completed successfully!');
+  } else {
+    log('Some builds failed');
     process.exit(1);
   }
 }
 
-// Determine watch mode from command line arguments
-const isWatch = process.argv.includes('--watch');
-build(isWatch);
+// Execute script
+main();

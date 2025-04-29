@@ -56,7 +56,7 @@ jobs:
       - name: Build and package extensions
         env:
           PACKAGE_VERSION: ${{ steps.get_version.outputs.VERSION }}
-        run: pnpm package
+        run: pnpm package:all
 
       # Create GitHub Release
       - name: Create Release

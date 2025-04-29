@@ -3,13 +3,12 @@ const path = require('path');
 const { execSync } = require('child_process');
 const packageJson = require('../package.json');
 
-// Read the package version from environment variable or package.json
+// Get package version
 const version = process.env.PACKAGE_VERSION || packageJson.version;
 
 /**
- * Script to create Chrome extension file (.crx or .zip)
- * With improvements for proper icon file handling
- * Cross-platform compatible (Windows, Linux, macOS)
+ * Script to create Chrome extension package (.zip)
+ * Includes icon processing and multi-platform compatibility
  */
 async function createChromeExtension() {
   try {
@@ -18,12 +17,12 @@ async function createChromeExtension() {
     // Check Chrome build directory
     const chromeDistDir = path.join(__dirname, '../dist/chrome');
 
-    // Check if already built
+    // Check if already built, build if needed
     if (!fs.existsSync(chromeDistDir) || !fs.existsSync(path.join(chromeDistDir, 'manifest.json'))) {
       console.log('Running Chrome build...');
-      execSync('pnpm build:chrome', { stdio: 'inherit' });
+      execSync('node esbuild.config.js --chrome', { stdio: 'inherit' });
     } else {
-      console.log('Chrome build already exists. Reusing it.');
+      console.log('Using existing Chrome build.');
     }
 
     // =====================================================
@@ -40,16 +39,16 @@ async function createChromeExtension() {
     if (fs.existsSync(distIconsDir)) {
       console.log('Verifying icon files in Chrome build directory...');
       const iconFiles = fs.readdirSync(distIconsDir);
-      
+
       // Check each icon file
       let missingIcons = false;
       for (const file of iconFiles) {
         if (file.endsWith('.png')) {
           const sourcePath = path.join(distIconsDir, file);
           const targetPath = path.join(iconsDir, file);
-          
+
           // Copy if missing or different size
-          if (!fs.existsSync(targetPath) || 
+          if (!fs.existsSync(targetPath) ||
               fs.statSync(sourcePath).size !== fs.statSync(targetPath).size) {
             fs.copyFileSync(sourcePath, targetPath);
             console.log(`Copied ${file} to ${iconsDir}`);
@@ -57,7 +56,7 @@ async function createChromeExtension() {
           }
         }
       }
-      
+
       if (missingIcons) {
         console.log('Successfully fixed missing icon files.');
       } else {
@@ -67,7 +66,7 @@ async function createChromeExtension() {
       console.error('Warning: dist/icons directory does not exist. Generating icons...');
       // Generate icons
       execSync('node scripts/generate-icons.js', { stdio: 'inherit' });
-      
+
       // Try again to copy icons
       if (fs.existsSync(distIconsDir)) {
         const iconFiles = fs.readdirSync(distIconsDir);
@@ -101,10 +100,10 @@ async function createChromeExtension() {
     // Create ZIP archive based on OS
     console.log(`Creating Chrome extension ZIP file: ${zipFilePath}`);
     if (process.platform === 'win32') {
-      // Use PowerShell on Windows
+      // Windows: Use PowerShell
       execSync(`cd "${chromeDistDir}" && powershell Compress-Archive -Path * -DestinationPath "${zipFilePath}" -Force`);
     } else {
-      // Use zip on Linux/macOS
+      // Linux/macOS: Use zip
       execSync(`cd "${chromeDistDir}" && zip -r "${zipFilePath}" *`);
     }
 
@@ -115,18 +114,18 @@ async function createChromeExtension() {
       // Windows-specific direct install directory
       const directInstallDir = path.join('D:', `music-x1-chrome-v${version}`);
       console.log(`Creating copy for direct installation at: ${directInstallDir}`);
-      
+
       // Remove existing directory if it exists
       if (fs.existsSync(directInstallDir)) {
         execSync(`rmdir /s /q "${directInstallDir}"`, { stdio: 'inherit' });
       }
-      
+
       // Create directory
       fs.mkdirSync(directInstallDir, { recursive: true });
-      
+
       // Copy all files from Chrome build directory using Windows xcopy
       execSync(`xcopy "${chromeDistDir}\\*" "${directInstallDir}\\" /E /I /H /Y`, { stdio: 'inherit' });
-      
+
       console.log(`Direct installation directory created: ${directInstallDir}`);
       console.log('\nInstallation Instructions:');
       console.log('1. Open Chrome/Edge');
@@ -148,12 +147,17 @@ async function createChromeExtension() {
     // =====================================================
 
     console.log('\nCompleted!');
-    console.log(`Chrome extension file created: ${zipFilePath}`);
+    console.log(`Chrome extension package: ${zipFilePath}`);
+    console.log('\nInstallation Instructions:');
+    console.log('1. Open Chrome/Edge');
+    console.log('2. Go to "chrome://extensions/"');
+    console.log('3. Enable "Developer mode" in the top right corner');
+    console.log(`4. Drag and drop "${zipFilePath}" into the browser extensions page`);
   } catch (error) {
     console.error('Error occurred:', error);
     process.exit(1);
   }
 }
 
-// Execute the script
+// Execute script
 createChromeExtension();

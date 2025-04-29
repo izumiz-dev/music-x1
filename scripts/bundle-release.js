@@ -3,71 +3,85 @@ const path = require('path');
 const { execSync } = require('child_process');
 const packageJson = require('../package.json');
 
-// Read the package version
+// Get package version
 const version = packageJson.version;
 
-// Create builds for both Chrome and Firefox
-console.log(`Building extension version ${version}...`);
+/**
+ * Create release packages for both Chrome and Firefox extensions
+ * Bundle builds and packaging for both browsers in a single operation
+ */
+async function bundleRelease() {
+  console.log(`=== Music X1 Extension v${version} Release Build Started ===\n`);
 
-// Clean previous builds
-try {
-  if (fs.existsSync(path.join(__dirname, '../dist-chrome'))) {
-    console.log('Cleaning previous Chrome build...');
-    execSync(`rmdir /S /Q "${path.join(__dirname, '../dist-chrome')}"`);
+  try {
+    // Clean up previous builds
+    console.log('Cleaning up previous builds...');
+    const distDir = path.join(__dirname, '../dist');
+
+    // Clean dist directory if it exists
+    if (fs.existsSync(distDir)) {
+      if (process.platform === 'win32') {
+        // Windows environment
+        execSync(`rmdir /S /Q "${distDir}"`, { stdio: 'inherit' });
+      } else {
+        // Linux/macOS environment
+        execSync(`rm -rf "${distDir}"`, { stdio: 'inherit' });
+      }
+      console.log('Cleanup completed');
+    }
+
+    // Create output directory
+    fs.mkdirSync(distDir, { recursive: true });
+
+    // Build & package Chrome extension
+    console.log('\n--- Starting Chrome Extension Build ---');
+    execSync('node scripts/create-chrome-addon.js', { stdio: 'inherit' });
+
+    // Build & package Firefox extension
+    console.log('\n--- Starting Firefox Extension Build ---');
+    execSync('node scripts/create-firefox-addon.js', { stdio: 'inherit' });
+
+    // Copy final artifacts to release directory
+    const releaseDir = path.join(__dirname, '../release');
+    if (!fs.existsSync(releaseDir)) {
+      fs.mkdirSync(releaseDir, { recursive: true });
+    }
+
+    // Copy Chrome extension artifact
+    const chromeExtDir = path.join(__dirname, '../dist/chrome-ext');
+    const chromeFiles = fs.readdirSync(chromeExtDir);
+    const chromeZipFile = chromeFiles.find(file => file.includes('.zip'));
+
+    if (chromeZipFile) {
+      fs.copyFileSync(
+        path.join(chromeExtDir, chromeZipFile),
+        path.join(releaseDir, chromeZipFile)
+      );
+      console.log(`Copied Chrome extension package to release directory: ${chromeZipFile}`);
+    }
+
+    // Copy Firefox extension artifact
+    const firefoxExtDir = path.join(__dirname, '../dist/firefox-addon');
+    const firefoxFiles = fs.readdirSync(firefoxExtDir);
+    const firefoxXpiFile = firefoxFiles.find(file => file.includes('.xpi'));
+
+    if (firefoxXpiFile) {
+      fs.copyFileSync(
+        path.join(firefoxExtDir, firefoxXpiFile),
+        path.join(releaseDir, firefoxXpiFile)
+      );
+      console.log(`Copied Firefox extension package to release directory: ${firefoxXpiFile}`);
+    }
+
+    console.log('\n=== Release Build Completed ===');
+    console.log('Artifacts:');
+    console.log(`- Chrome: ${path.join(releaseDir, chromeZipFile)}`);
+    console.log(`- Firefox: ${path.join(releaseDir, firefoxXpiFile)}`);
+  } catch (error) {
+    console.error('\nAn error occurred:', error);
+    process.exit(1);
   }
-  
-  if (fs.existsSync(path.join(__dirname, '../dist-firefox'))) {
-    console.log('Cleaning previous Firefox build...');
-    execSync(`rmdir /S /Q "${path.join(__dirname, '../dist-firefox')}"`);
-  }
-} catch (error) {
-  console.error('Error cleaning previous builds:', error);
 }
 
-// Build Chrome version
-try {
-  console.log('\nBuilding Chrome version...');
-  execSync('pnpm build', { stdio: 'inherit' });
-  
-  console.log('Creating Chrome ZIP archive...');
-  const chromeOutputDir = path.join(__dirname, '../release');
-  
-  // Create the output directory if it doesn't exist
-  if (!fs.existsSync(chromeOutputDir)) {
-    fs.mkdirSync(chromeOutputDir, { recursive: true });
-  }
-  
-  // Create ZIP archive
-  const chromeZipFileName = `music-x1-chrome-v${version}.zip`;
-  execSync(`cd "${path.join(__dirname, '../dist-chrome')}" && powershell Compress-Archive -Path * -DestinationPath "${path.join(chromeOutputDir, chromeZipFileName)}" -Force`);
-  
-  console.log(`Chrome build completed: ${path.join(chromeOutputDir, chromeZipFileName)}`);
-} catch (error) {
-  console.error('Error building Chrome version:', error);
-}
-
-// Build Firefox version
-try {
-  console.log('\nBuilding Firefox version...');
-  execSync('pnpm build:firefox', { stdio: 'inherit' });
-  
-  console.log('Creating Firefox ZIP archive...');
-  const firefoxOutputDir = path.join(__dirname, '../release');
-  
-  // Create the output directory if it doesn't exist
-  if (!fs.existsSync(firefoxOutputDir)) {
-    fs.mkdirSync(firefoxOutputDir, { recursive: true });
-  }
-  
-  // Create ZIP archive
-  const firefoxZipFileName = `music-x1-firefox-v${version}.zip`;
-  execSync(`cd "${path.join(__dirname, '../dist-firefox')}" && powershell Compress-Archive -Path * -DestinationPath "${path.join(firefoxOutputDir, firefoxZipFileName)}" -Force`);
-  
-  console.log(`Firefox build completed: ${path.join(firefoxOutputDir, firefoxZipFileName)}`);
-} catch (error) {
-  console.error('Error building Firefox version:', error);
-}
-
-console.log('\nBuild process completed!');
-console.log(`Chrome version: ${path.join(__dirname, '../release', `music-x1-chrome-v${version}.zip`)}`);
-console.log(`Firefox version: ${path.join(__dirname, '../release', `music-x1-firefox-v${version}.zip`)}`);
+// Execute script
+bundleRelease();

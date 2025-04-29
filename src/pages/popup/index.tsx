@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { h, render } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import { browserAPI } from '../../browser-polyfill';
 import { StorageManager } from '../../managers/storageManager';
@@ -199,5 +199,8 @@ const Popup = () => {
     </div>
   );
 };
+
+// アプリをDOMにレンダリング
+render(<Popup />, document.getElementById('app')!);
 
 export default Popup;

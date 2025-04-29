@@ -3,11 +3,11 @@ const path = require('path');
 const { execSync } = require('child_process');
 const packageJson = require('../package.json');
 
-// Read the package version from environment variable or package.json
+// Get package version
 const version = process.env.PACKAGE_VERSION || packageJson.version;
 
 /**
- * Script to create Firefox add-on build and XPI file
+ * Script to create Firefox add-on XPI file
  */
 async function createFirefoxAddon() {
   try {
@@ -16,12 +16,39 @@ async function createFirefoxAddon() {
     // Check Firefox build directory
     const firefoxDistDir = path.join(__dirname, '../dist/firefox');
 
-    // Check if already built
+    // Check if already built, build if needed
     if (!fs.existsSync(firefoxDistDir) || !fs.existsSync(path.join(firefoxDistDir, 'manifest.json'))) {
       console.log('Running Firefox build...');
-      execSync('pnpm build:firefox', { stdio: 'inherit' });
+      execSync('node esbuild.config.js --firefox', { stdio: 'inherit' });
     } else {
-      console.log('Firefox build already exists. Reusing it.');
+      console.log('Using existing Firefox build.');
+    }
+
+    // Verify and fix icon files
+    const iconsDir = path.join(firefoxDistDir, 'icons');
+    if (!fs.existsSync(iconsDir)) {
+      fs.mkdirSync(iconsDir, { recursive: true });
+    }
+
+    // Check if generated icons exist, generate if needed
+    const distIconsDir = path.join(__dirname, '../dist/icons');
+    if (!fs.existsSync(distIconsDir) || fs.readdirSync(distIconsDir).length === 0) {
+      console.log('Generating icons...');
+      execSync('node scripts/generate-icons.js', { stdio: 'inherit' });
+    }
+
+    // Copy icon files
+    if (fs.existsSync(distIconsDir)) {
+      console.log('Copying icon files...');
+      const iconFiles = fs.readdirSync(distIconsDir);
+      for (const file of iconFiles) {
+        if (file.endsWith('.png')) {
+          const sourcePath = path.join(distIconsDir, file);
+          const targetPath = path.join(iconsDir, file);
+          fs.copyFileSync(sourcePath, targetPath);
+        }
+      }
+      console.log('Icons copied successfully');
     }
 
     // Create output directory
@@ -43,7 +70,6 @@ async function createFirefoxAddon() {
       execSync(`cd "${firefoxDistDir}" && powershell Compress-Archive -Path * -DestinationPath "${xpiFilePath}" -Force`);
     } else {
       // Use zip on Linux/macOS
-      // Ensure zip is installed in the environment (GitHub Actions runners usually have it)
       execSync(`cd "${firefoxDistDir}" && zip -r "${xpiFilePath}" *`);
     }
 
