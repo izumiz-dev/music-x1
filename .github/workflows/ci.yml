@@ -49,7 +49,7 @@ jobs:
         run: pnpm lint
 
       - name: Package extensions
-        run: pnpm package
+        run: pnpm package:all
 
       - name: Verify package artifacts
         run: |
