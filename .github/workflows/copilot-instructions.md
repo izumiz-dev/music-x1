@@ -105,3 +105,37 @@ This document defines the command-line interface (CLI) rules for the Music-X1 pr
 ### Code Review Process
 - Reviewers should verify that all code has passed lint and type-check before approval.
 - Code that introduces new lint warnings or type errors should be rejected in the review process.
+
+### Code Style Guidelines
+- Empty lines must not contain any whitespace characters.
+- Use consistent indentation (2 spaces for JavaScript/TypeScript files).
+- Ensure proper spacing around operators and after commas.
+- Maintain a single empty line at the end of files.
+- Remove all trailing whitespace at the end of lines.
+- Configure your editor to automatically remove trailing whitespace on save.
+
+## Code Documentation Guidelines
+
+### Comment Guidelines
+- **Avoid unnecessary comments** in source code. Code should be self-explanatory whenever possible.
+- Comments should add value by explaining "why" rather than "what" (which should be evident from the code itself).
+- Never leave commented-out code in the final version; remove it completely if it's no longer needed.
+
+### Required English Documentation
+- For complex logic that requires background information to understand, **English comments are mandatory**.
+- All API documentation comments must be written in English to ensure international development team collaboration.
+- Include context and purpose information for algorithms or business logic that depend on external requirements.
+
+### Documentation Format
+- Use JSDoc style comments for functions and classes in JavaScript/TypeScript code:
+  ```typescript
+  /**
+   * Processes YouTube video metadata and extracts relevant information
+   * @param {Object} videoData - Raw data from YouTube API
+   * @returns {VideoMetadata} Processed metadata object
+   */
+  ```
+- Single-line comments should use the double-slash format with a space after the slashes:
+  ```typescript
+  // This is required due to YouTube's CORS policy changes (2023)
+  ```
