@@ -1,4 +1,4 @@
-import { browserAPI } from './browser-polyfill';
+import { browserAPI } from '../browser-polyfill';
 
 /**
  * ブラウザ間の違いを吸収する画面遷移ヘルパー
@@ -29,7 +29,7 @@ export class NavigationHelper {
       }
     } catch (error) {
       console.error('[NavigationHelper] Error opening options page:', error);
-      
+
       // フォールバック
       try {
         const optionsUrl = browserAPI.runtime.getURL('options.html');
@@ -40,7 +40,7 @@ export class NavigationHelper {
       }
     }
   }
-  
+
   /**
    * 新しいタブでURLを開く
    * @param url 開きたいURL

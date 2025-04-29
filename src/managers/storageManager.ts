@@ -1,4 +1,4 @@
-import { browserAPI } from './browser-polyfill';
+import { browserAPI } from '../browser-polyfill';
 
 /**
  * ブラウザストレージにアクセスするための統一インターフェース

@@ -1,7 +1,7 @@
 import { h, render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { apiKeyManager, ApiKeyType } from './apiKeyManager';
-import { StorageManager } from './storage-manager';
+import { apiKeyManager, ApiKeyType } from '../../managers/apiKeyManager';
+import { StorageManager } from '../../managers/storageManager';
 
 const Options = () => {
   const [geminiApiKey, setGeminiApiKey] = useState('');

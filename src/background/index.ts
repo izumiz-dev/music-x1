@@ -1,9 +1,9 @@
-import { fetchMusicOrNot } from './gemini';
-import { isMusicCategory, getVideoDetails } from './youtube';
-import { apiKeyManager } from './apiKeyManager';
-import { browserAPI } from './browser-polyfill';
-import { StorageManager } from './storage-manager';
-import { PlaybackRateManager } from './playback-rate-manager';
+import { fetchMusicOrNot } from '../services/gemini';
+import { isMusicCategory, getVideoDetails } from '../services/youtube';
+import { apiKeyManager } from '../managers/apiKeyManager';
+import { browserAPI } from '../browser-polyfill';
+import { StorageManager } from '../managers/storageManager';
+import { PlaybackRateManager } from '../managers/playbackRateManager';
 
 // Clear cache when extension starts (for security)
 apiKeyManager.clearCache();

@@ -1,5 +1,5 @@
 import { h, render } from 'preact';
-import Popup from './popup';
+import Popup from './pages/popup';
 
 document.addEventListener('DOMContentLoaded', () => {
   const root = document.getElementById('app');

@@ -3,8 +3,8 @@
  * ブラウザの違いを抽象化し、安定した再生速度の設定と取得を提供
  */
 
-import { browserAPI } from './browser-polyfill';
-import { StorageManager } from './storage-manager';
+import { browserAPI } from '../browser-polyfill';
+import { StorageManager } from './storageManager';
 
 export class PlaybackRateManager {
   // デフォルトの再生速度

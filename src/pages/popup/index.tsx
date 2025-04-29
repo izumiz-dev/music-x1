@@ -1,12 +1,12 @@
 import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { browserAPI } from './browser-polyfill';
-import { StorageManager } from './storage-manager';
-import { NavigationHelper } from './navigation-helper';
-import { ApiKeyType, apiKeyManager } from './apiKeyManager';
-import { PlaybackRateManager } from './playback-rate-manager';
+import { browserAPI } from '../../browser-polyfill';
+import { StorageManager } from '../../managers/storageManager';
+import { NavigationHelper } from '../../utils/navigationHelper';
+import { ApiKeyType, apiKeyManager } from '../../managers/apiKeyManager';
+import { PlaybackRateManager } from '../../managers/playbackRateManager';
 
-import './popup.css';
+import './index.css';
 
 const Popup = () => {
   const [currentTab, setCurrentTab] = useState<chrome.tabs.Tab | null>(null);

@@ -10,7 +10,7 @@ const path = require('path');
 function generateFirefoxManifest(sourcePath, outputPath) {
   // Read the original manifest
   const manifest = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
-  
+
   // Create a Firefox-compatible version
   const firefoxManifest = {
     // Keep common properties
@@ -23,26 +23,26 @@ function generateFirefoxManifest(sourcePath, outputPath) {
       // Add host permissions directly to permissions array for Firefox
       ...(manifest.host_permissions || [])
     ],
-    
+
     // Firefox uses browser_action instead of action in MV3
     browser_action: {
-      default_popup: manifest.action.default_popup
+      default_popup: "pages/popup/index.html" // Use the correct path after build
     },
-    
+
     // Firefox uses background scripts instead of service workers
     background: {
-      scripts: ["background.js"]
+      scripts: ["background/index.js"] // Use the correct path after build
     },
-    
+
     // Content scripts remain the same
     content_scripts: manifest.content_scripts,
-    
+
     // Options page
     options_ui: {
-      page: manifest.options_page,
+      page: "pages/options/index.html", // Use the correct path after build
       open_in_tab: true
     },
-    
+
     // Add explicit Firefox addon ID using izumiz.dev domain
     browser_specific_settings: {
       gecko: {
@@ -50,15 +50,15 @@ function generateFirefoxManifest(sourcePath, outputPath) {
         strict_min_version: "58.0"
       }
     },
-    
+
     // Set manifest version to 2 for Firefox
     manifest_version: 2
   };
-  
+
   // Write the Firefox manifest
   fs.writeFileSync(outputPath, JSON.stringify(firefoxManifest, null, 2));
   console.log(`Firefox manifest generated at: ${outputPath}`);
-  
+
   return firefoxManifest;
 }
 

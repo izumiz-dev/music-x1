@@ -9,7 +9,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_popup": "index.html"
+    "default_popup": "pages/popup/index.html"
   },
   "permissions": [
     "storage",
@@ -21,17 +21,17 @@
     "https://www.googleapis.com/youtube/v3/*"
   ],
   "background": {
-    "service_worker": "background.js",
+    "service_worker": "background/index.js",
     "type": "module"
   },
   "content_scripts": [
     {
       "matches": [
         "https://www.youtube.com/*",
-        "https://youtube.com/*"
-      ],
-      "js": ["content.js"]
-    }
-  ],
-  "options_page": "options.html"
+      "https://youtube.com/*"
+    ],
+    "js": ["content/youtube.js"]
+  }
+],
+  "options_page": "pages/options/index.html"
 }

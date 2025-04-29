@@ -1,4 +1,4 @@
-import { apiKeyManager, ApiKeyType } from './apiKeyManager';
+import { apiKeyManager, ApiKeyType } from '../managers/apiKeyManager';
 
 interface YouTubeApiError {
   type: 'YOUTUBE_API_ERROR';

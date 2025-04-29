@@ -1,4 +1,4 @@
-import { apiKeyManager, ApiKeyType } from './apiKeyManager';
+import { apiKeyManager, ApiKeyType } from '../managers/apiKeyManager';
 
 const API_END_POINT: string =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite-preview-02-05:generateContent';

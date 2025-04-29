@@ -1,6 +1,6 @@
 // YouTube page content script
-import { browserAPI } from './browser-polyfill';
-import { StorageManager } from './storage-manager';
+import { browserAPI } from '../browser-polyfill';
+import { StorageManager } from '../managers/storageManager';
 
 let isInitialized = false;
 

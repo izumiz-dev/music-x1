@@ -3,8 +3,8 @@
  * Enhances security with encrypted storage and in-memory caching
  */
 
-import { encryptText, decryptText } from './crypto';
-import { StorageManager } from './storage-manager';
+import { encryptText, decryptText } from '../services/crypto';
+import { StorageManager } from './storageManager';
 
 // Define key types
 export enum ApiKeyType {
