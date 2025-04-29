@@ -9,6 +9,19 @@ This document defines the command-line interface (CLI) rules for the Music-X1 pr
 2. Scripts must be compatible with both Windows and Linux environments to ensure proper functionality in GitHub Actions pipelines.
 3. Cross-platform compatibility is mandatory for all CLI tools.
 4. All specification changes must be documented in the architecture and readme files.
+5. CLI tools may leverage network search capabilities using integrated search tools when necessary.
+
+## Network Search Integration
+
+### Available Search Tools
+- **Perplexity Ask**: Use for detailed technical queries that require comprehensive answers.
+- **Brave Search**: Use for general web searches related to troubleshooting, documentation, or reference materials.
+
+### Usage Guidelines
+- Network searches should be used when local documentation is insufficient.
+- Search results must be cached when appropriate to minimize repeated network requests.
+- Include proper error handling for scenarios where network connectivity is unavailable.
+- Respect rate limits and implement appropriate backoff strategies.
 
 ## Cross-Platform Compatibility Guidelines
 
