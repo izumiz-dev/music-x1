@@ -59,7 +59,9 @@ jobs:
 
       - name: Verify build artifacts
         run: |
-          if [ ! -d "./dist/chrome-ext" ] || [ ! -d "./dist/firefox-addon" ]; then
+          echo "Checking build artifacts..."
+          ls -la ./dist || echo "No dist directory found"
+          if [ ! -d "./dist" ] || [ ! -f "./dist/chrome.zip" ] || [ ! -f "./dist/firefox.zip" ]; then
             echo "Build artifacts are missing!"
             exit 1
           fi
