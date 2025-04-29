@@ -42,9 +42,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Install Firefox dependencies
-        run: pnpm install:firefox-deps
-
       - name: Type check
         run: pnpm type-check
 
@@ -52,7 +49,7 @@ jobs:
         run: pnpm lint
 
       - name: Package extensions
-        run: pnpm package:all
+        run: pnpm package
 
       - name: Verify package artifacts
         run: |
