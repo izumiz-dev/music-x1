@@ -51,18 +51,21 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-      - name: Build for Chrome
-        run: pnpm build:chrome
+      - name: Package extensions
+        run: pnpm package
 
-      - name: Build for Firefox
-        run: pnpm build:firefox
-
-      - name: Verify build artifacts
+      - name: Verify package artifacts
         run: |
-          echo "Checking build artifacts..."
+          echo "Checking package artifacts..."
           ls -la ./dist || echo "No dist directory found"
-          if [ ! -d "./dist" ] || [ ! -f "./dist/chrome.zip" ] || [ ! -f "./dist/firefox.zip" ]; then
-            echo "Build artifacts are missing!"
+          ls -la ./dist/chrome-ext || echo "No chrome-ext directory found"
+          ls -la ./dist/firefox-addon || echo "No firefox-addon directory found"
+          if [ ! -d "./dist" ] || [ ! -d "./dist/chrome-ext" ] || [ ! -d "./dist/firefox-addon" ]; then
+            echo "Package artifacts are missing!"
             exit 1
           fi
-          echo "Build verification completed successfully."
+          if [ ! -f "./dist/chrome-ext/music-x1-chrome-v"*.zip ] || [ ! -f "./dist/firefox-addon/music-x1-firefox-v"*.xpi ]; then
+            echo "ZIP/XPI packages are missing!"
+            exit 1
+          fi
+          echo "Package verification completed successfully."
