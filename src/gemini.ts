@@ -1,7 +1,7 @@
 import { apiKeyManager, ApiKeyType } from './apiKeyManager';
 
 const API_END_POINT: string =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite-preview-02-05:generateContent';
+  'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent';
 
 const getGeminiApiKey = async (): Promise<string> => {
   const apiKey = await apiKeyManager.getApiKey(ApiKeyType.GEMINI);
