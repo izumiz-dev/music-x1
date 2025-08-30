@@ -70,7 +70,7 @@ const updateBadge = async (isMusic: boolean, detectionMethod: 'youtube' | 'gemin
   const enabled = extensionEnabled !== false; // Default to true if not set
 
   // Set badge
-  const text = visible && enabled ? (isMusic ? '♪' : '🎞️') : '';
+  const text = visible && enabled ? (isMusic ? '♪' : '🎬') : '';
   const color = isMusic ? '#4CAF50' : '#808080';
   // const _title = visible && enabled
   //   ? `Music: ${isMusic ? 'Yes' : 'No'} (via ${detectionMethod || 'unknown'})`
